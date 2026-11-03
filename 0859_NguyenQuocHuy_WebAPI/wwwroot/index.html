@@ -1,0 +1,2280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DA Restaurant Api - Quản Lý Nhà Hàng & POS</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #d97706;
+            --primary-hover: #b45309;
+            --secondary-color: #1e293b;
+            --bg-light: #f8fafc;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            color: #334155;
+            min-height: 100vh;
+        }
+        .navbar-brand-badge {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-right: 8px;
+        }
+        .nav-tabs .nav-link {
+            color: #64748b;
+            font-weight: 600;
+            border: none;
+            border-bottom: 3px solid transparent;
+            padding: 12px 18px;
+            transition: all 0.2s ease;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+            background: transparent;
+        }
+        .nav-tabs .nav-link:hover:not(.active) {
+            color: var(--secondary-color);
+            border-bottom-color: #cbd5e1;
+        }
+        .metric-card {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--card-shadow-hover);
+        }
+        .metric-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .table-card {
+            border-radius: 14px;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .table-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--card-shadow-hover);
+        }
+        .table-status-TRONG {
+            background-color: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #065f46;
+        }
+        .table-status-DANG_PHUC_VU {
+            background-color: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+        .table-status-DA_DAT {
+            background-color: #fffbeb;
+            border-color: #fde68a;
+            color: #92400e;
+        }
+        .product-img-thumb {
+            width: 55px;
+            height: 55px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .badge-role-Admin {
+            background-color: #fee2e2;
+            color: #dc2626;
+            font-weight: 700;
+        }
+        .badge-role-User {
+            background-color: #e0f2fe;
+            color: #0284c7;
+            font-weight: 600;
+        }
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse 1.6s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm py-2">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <span class="navbar-brand-badge"><i class="fa-solid fa-utensils"></i> POS</span>
+                <span class="fw-bold tracking-wide">DA Restaurant Api</span>
+                <span class="badge bg-danger ms-2 text-uppercase fs-8" style="font-size: 0.7rem;"><i class="fa-solid fa-satellite-dish me-1"></i>Realtime Sync</span>
+            </a>
+
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <div class="d-none d-md-flex align-items-center text-light me-2">
+                    <span class="pulse-dot me-2"></span>
+                    <small id="serverStatusText">Máy chủ: Hoạt động (Online)</small>
+                </div>
+
+                <!-- Live Notification Bell Button -->
+                <button class="btn btn-sm btn-outline-info d-flex align-items-center position-relative me-1" onclick="openNotificationsTab()" title="Xem hoạt động từ Mobile App">
+                    <i class="fa-solid fa-bell me-1 text-warning"></i>
+                    <span class="d-none d-sm-inline">Thông Báo App</span>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="navNotifBadge" style="display:none;">0</span>
+                </button>
+
+                <a href="/swagger" target="_blank" class="btn btn-sm btn-outline-warning">
+                    <i class="fa-solid fa-book-open me-1"></i> Swagger API Docs
+                </a>
+
+                <!-- User profile badge -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-light dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa-solid fa-user-circle me-1 text-primary"></i>
+                        <span id="currentAccountBadge">Admin (admin)</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <li><h6 class="dropdown-header">Tài khoản & Phân quyền</h6></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickLogin('admin', '123456')"><i class="fa-solid fa-user-shield me-2 text-danger"></i>Đăng nhập Admin (admin/123456)</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickLogin('user', '123456')"><i class="fa-solid fa-user me-2 text-primary"></i>Đăng nhập User (user/123456)</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#customLoginModal"><i class="fa-solid fa-right-to-bracket me-2"></i>Đăng nhập tài khoản khác...</a></li>
+                        <li><a class="dropdown-item text-danger" href="#" onclick="logoutUser()"><i class="fa-solid fa-power-off me-2"></i>Đăng xuất</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="container-fluid px-4 py-4">
+
+        <!-- Top Metric Summary Cards -->
+        <div class="row g-3 mb-4" id="metricsContainer">
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Bàn Đang Phục Vụ</span>
+                        <div class="metric-icon bg-danger-subtle text-danger"><i class="fa-solid fa-chair"></i></div>
+                    </div>
+                    <h3 class="fw-bold mb-0" id="statActiveTables">0</h3>
+                    <small class="text-muted" id="statTotalTables">/ 0 bàn</small>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Đơn Hôm Nay</span>
+                        <div class="metric-icon bg-success-subtle text-success"><i class="fa-solid fa-receipt"></i></div>
+                    </div>
+                    <h3 class="fw-bold mb-0" id="statTodayOrders">0</h3>
+                    <small class="text-muted" id="statTotalOrders">Tổng: 0 đơn</small>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Doanh Thu Hôm Nay</span>
+                        <div class="metric-icon bg-warning-subtle text-warning"><i class="fa-solid fa-coins"></i></div>
+                    </div>
+                    <h4 class="fw-bold mb-0 text-success" id="statTodayRevenue">0 đ</h4>
+                    <small class="text-muted" id="statTotalRevenue">Toàn thời gian: 0 đ</small>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Thực Đơn Món Ăn</span>
+                        <div class="metric-icon bg-info-subtle text-info"><i class="fa-solid fa-bowl-food"></i></div>
+                    </div>
+                    <h3 class="fw-bold mb-0" id="statMenuItems">0</h3>
+                    <small class="text-muted">Món ăn & Đồ uống</small>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Sản Phẩm & Danh Mục</span>
+                        <div class="metric-icon bg-primary-subtle text-primary"><i class="fa-solid fa-tags"></i></div>
+                    </div>
+                    <h3 class="fw-bold mb-0" id="statProducts">0</h3>
+                    <small class="text-muted" id="statCategories">/ 0 danh mục</small>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="metric-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Tài Khoản Identity</span>
+                        <div class="metric-icon bg-secondary-subtle text-secondary"><i class="fa-solid fa-users"></i></div>
+                    </div>
+                    <h3 class="fw-bold mb-0" id="statUsers">0</h3>
+                    <small class="text-muted" id="statAdmins">0 Admin / 0 User</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-0 pt-3 px-4">
+                <ul class="nav nav-tabs card-header-tabs" id="mainTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold text-primary" id="notifications-tab" data-bs-toggle="tab" data-bs-target="#notifications-pane" type="button" role="tab">
+                            <i class="fa-solid fa-satellite-dish me-2 text-danger"></i>Hoạt Động API & Đồng Bộ App
+                            <span class="badge bg-danger rounded-pill ms-1" id="tabNotifCount" style="display:none;">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tables-tab" data-bs-toggle="tab" data-bs-target="#tables-pane" type="button" role="tab">
+                            <i class="fa-solid fa-table-cells-large me-2"></i>Sơ Đồ Bàn Ăn
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="menu-tab" data-bs-toggle="tab" data-bs-target="#menu-pane" type="button" role="tab">
+                            <i class="fa-solid fa-book-open-reader me-2"></i>Thực Đơn Món Ăn
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#products-pane" type="button" role="tab">
+                            <i class="fa-solid fa-cubes me-2"></i>Sản Phẩm & Danh Mục
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders-pane" type="button" role="tab">
+                            <i class="fa-solid fa-receipt me-2"></i>Hóa Đơn & Đơn Hàng
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="staff-tab" data-bs-toggle="tab" data-bs-target="#staff-pane" type="button" role="tab">
+                            <i class="fa-solid fa-id-card-clip me-2"></i>Nhân Sự & Chấm Công
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="customers-tab" data-bs-toggle="tab" data-bs-target="#customers-pane" type="button" role="tab">
+                            <i class="fa-solid fa-award me-2"></i>Khách Hàng & Điểm
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab">
+                            <i class="fa-solid fa-users-gear me-2"></i>Người Dùng & Quyền
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="smartauth-tab" data-bs-toggle="tab" data-bs-target="#smartauth-pane" type="button" role="tab">
+                            <i class="fa-solid fa-mobile-screen-button me-2"></i>Smart Auth OTP
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="tab-content" id="mainTabContent">
+
+                    <!-- TAB 1: GIÁM SÁT HOẠT ĐỘNG API & ĐỒNG BỘ APP (REAL-TIME) -->
+                    <div class="tab-pane fade show active" id="notifications-pane" role="tabpanel">
+                        <!-- Top Realtime Status Cards -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="metric-card border-start border-4 border-success">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-muted small fw-semibold">Kết Nối SignalR Realtime</span>
+                                        <span class="badge bg-success" id="signalrStatusBadge">ONLINE</span>
+                                    </div>
+                                    <h5 class="fw-bold mb-0 text-success" id="signalrStatusText">🟢 Trực Tuyến</h5>
+                                    <small class="text-muted">Kênh thông báo: <code>/hubs/notifications</code></small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="metric-card border-start border-4 border-primary">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-muted small fw-semibold">Địa Chỉ Web API (Dành Cho App)</span>
+                                        <span class="badge bg-primary">LAN / Wi-Fi</span>
+                                    </div>
+                                    <h6 class="fw-bold mb-0 text-primary text-truncate" id="serverLanIpDisplay">http://localhost:5276/api/</h6>
+                                    <small class="text-muted">Mọi điện thoại cùng Wi-Fi đều kết nối đồng bộ</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="metric-card border-start border-4 border-warning">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-muted small fw-semibold">Tổng Hoạt Động Ghi Nhận</span>
+                                        <span class="badge bg-warning text-dark">Hôm nay</span>
+                                    </div>
+                                    <h4 class="fw-bold mb-0" id="totalActivitiesCount">0</h4>
+                                    <small class="text-muted">Yêu cầu & Thao tác từ App di động</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick API Simulation Toolbar -->
+                        <div class="card border border-primary-subtle shadow-sm rounded-4 mb-4 bg-light">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                    <div>
+                                        <span class="fw-bold text-primary"><i class="fa-solid fa-gamepad me-2"></i>Bộ Công Cụ Giả Lập Thao Tác Từ App Di Động:</span>
+                                        <small class="text-muted d-block d-md-inline ms-md-2">Bấm thử để xem Web API nhận request và bắn thông báo Real-time tức thì</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button class="btn btn-sm btn-success" onclick="simulateOrderCheckout()">
+                                        <i class="fa-solid fa-cart-shopping me-1"></i>Giả Lập Gọi Món & Thanh Toán
+                                    </button>
+                                    <button class="btn btn-sm btn-info text-white" onclick="simulateAttendance()">
+                                        <i class="fa-solid fa-qrcode me-1"></i>Giả Lập Quét NFC/QR Chấm Công
+                                    </button>
+                                    <button class="btn btn-sm btn-warning text-dark" onclick="simulateTableStatus()">
+                                        <i class="fa-solid fa-chair me-1"></i>Giả Lập Cập Nhật Bàn
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" onclick="simulateSyncData()">
+                                        <i class="fa-solid fa-rotate me-1"></i>Giả Lập Tải Đồng Bộ
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="testAppNotification()">
+                                        <i class="fa-solid fa-bell me-1"></i>Bắn Thông Báo Mẫu
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Toolbar & Filter Bar -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <h5 class="fw-bold mb-0"><i class="fa-solid fa-satellite-dish text-danger me-2"></i>Nhật Ký Hoạt Động API & App (Live Stream)</h5>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">Real-time Push</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="loadRecentNotifications()">
+                                    <i class="fa-solid fa-rotate me-1"></i>Làm Mới
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="clearAllNotifications()">
+                                    <i class="fa-solid fa-trash-can me-1"></i>Xóa Nhật Ký
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Category Filters -->
+                        <div class="mb-3 d-flex flex-wrap gap-1" id="categoryFilterGroup">
+                            <button class="btn btn-sm btn-primary active-filter" onclick="filterActivities('all', this)">Tất Cả</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="filterActivities('Order', this)"><i class="fa-solid fa-receipt me-1"></i>Đơn Hàng</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="filterActivities('Table', this)"><i class="fa-solid fa-chair me-1"></i>Bàn Ăn</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="filterActivities('Attendance', this)"><i class="fa-solid fa-id-card me-1"></i>Chấm Công</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="filterActivities('Auth', this)"><i class="fa-solid fa-key me-1"></i>Tài Khoản</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="filterActivities('Menu', this)"><i class="fa-solid fa-utensils me-1"></i>Thực Đơn</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="filterActivities('Sync', this)"><i class="fa-solid fa-arrows-rotate me-1"></i>Đồng Bộ</button>
+                        </div>
+
+                        <!-- Real-time Activity Table -->
+                        <div class="table-responsive rounded-3 border mb-4 shadow-sm bg-white">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 140px;">Thời Gian</th>
+                                        <th style="width: 170px;">Thiết Bị / IP</th>
+                                        <th style="width: 120px;">Phân Loại</th>
+                                        <th style="width: 190px;">Hành Động API</th>
+                                        <th>Nội Dung Thao Tác Chi Tiết</th>
+                                        <th style="width: 110px;" class="text-center">Trạng Thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="appActivitiesTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">
+                                            <i class="fa-solid fa-spinner fa-spin me-2"></i>Đang tải dữ liệu hoạt động...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Multi-Device Connection Instructions -->
+                        <div class="card bg-light border-0 rounded-4 p-4 shadow-sm">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="metric-icon bg-success text-white"><i class="fa-solid fa-network-wired"></i></div>
+                                <div>
+                                    <h5 class="fw-bold mb-0">Hướng Dẫn Cho Các Máy Tải App Về Đều Chạy Đồng Bộ Với Web API Này</h5>
+                                    <small class="text-muted">Cung cấp đường dẫn API để mọi điện thoại Android/iOS khi tải app về đều kết nối dữ liệu chung</small>
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card h-100 border p-3 bg-white rounded-3 shadow-none">
+                                        <h6 class="fw-bold text-success"><i class="fa-solid fa-wifi me-2"></i>1. KẾT NỐI QUA MẠNG WI-FI (Nội bộ quán / Lớp học)</h6>
+                                        <p class="small text-muted mb-2">Cho điện thoại kết nối cùng Wi-Fi với máy tính này, dán link vào file <code>.env</code> của app:</p>
+                                        <div class="bg-dark text-light p-2 rounded small font-monospace mb-2" id="lanEnvSnippet">
+                                            BASE_URL=http://localhost:5276/api/
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="copySnippet('lanEnvSnippet')">
+                                            <i class="fa-solid fa-copy me-1"></i>Sao chép URL Mạng LAN
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100 border p-3 bg-white rounded-3 shadow-none">
+                                        <h6 class="fw-bold text-primary"><i class="fa-solid fa-globe me-2"></i>2. KẾT NỐI TỪ XA / 4G (Gửi app cho bất kỳ ai)</h6>
+                                        <p class="small text-muted mb-2">Chạy file <code>start_public_tunnel.bat</code> tại thư mục dự án để tạo link HTTPS công khai:</p>
+                                        <div class="bg-dark text-light p-2 rounded small font-monospace mb-2">
+                                            BASE_URL=https://[link-tunnel].trycloudflare.com/api/
+                                        </div>
+                                        <small class="text-info"><i class="fa-solid fa-circle-check me-1"></i>Miễn phí 100%, ai ở đâu có mạng 4G cũng đều gọi món đồng bộ về máy chủ của bạn!</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: SƠ ĐỒ BÀN ĂN -->
+                    <div class="tab-pane fade" id="tables-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <h5 class="fw-bold mb-0">Sơ Đồ Bàn Ăn Nhà Hàng</h5>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">Trống</span>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đang phục vụ</span>
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Đã đặt</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="loadTables()"><i class="fa-solid fa-rotate me-1"></i>Làm mới</button>
+                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addTableModal"><i class="fa-solid fa-plus me-1"></i>Thêm Bàn Mới</button>
+                            </div>
+                        </div>
+
+                        <!-- Table Cards Grid -->
+                        <div class="row g-3" id="tablesContainer">
+                            <div class="col-12 text-center py-5 text-muted">
+                                <i class="fa-solid fa-spinner fa-spin fa-2x mb-2"></i>
+                                <p>Đang tải dữ liệu bàn ăn...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: THỰC ĐƠN MÓN ĂN -->
+                    <div class="tab-pane fade" id="menu-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="d-flex gap-2 align-items-center">
+                                <h5 class="fw-bold mb-0">Thực Đơn Món Ăn</h5>
+                                <input type="text" id="menuSearchInput" class="form-control form-control-sm" placeholder="Tìm tên món..." style="width: 220px;" oninput="filterMenuItems()">
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="loadMenuItems()"><i class="fa-solid fa-rotate me-1"></i>Làm mới</button>
+                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addMenuItemModal"><i class="fa-solid fa-plus me-1"></i>Thêm Món Ăn</button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Tên Món Ăn</th>
+                                        <th>Phân Loại</th>
+                                        <th>Đơn Giá</th>
+                                        <th>Mô Tả</th>
+                                        <th>Trạng Thái</th>
+                                        <th class="text-end">Hành Động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="menuTableBody">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: SẢN PHẨM & DANH MỤC (BÀI TẬP BẮT BUỘC) -->
+                    <div class="tab-pane fade" id="products-pane" role="tabpanel">
+                        <div class="row g-4">
+                            <!-- Danh mục ẩm thực (CategoryApiController) -->
+                            <div class="col-lg-5">
+                                <div class="card border border-slate-200 shadow-sm rounded-3">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                                        <h6 class="fw-bold mb-0"><i class="fa-solid fa-folder me-2 text-warning"></i>Danh Mục Ẩm Thực (Category)</h6>
+                                        <button class="btn btn-sm btn-warning text-dark fw-semibold" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                                            <i class="fa-solid fa-plus me-1"></i>Thêm Danh Mục
+                                        </button>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover align-middle mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>ID</th>
+                                                        <th>Tên Danh Mục</th>
+                                                        <th>Số Món</th>
+                                                        <th class="text-end">Hành Động</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="categoriesTableBody">
+                                                    <!-- Loaded dynamically -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer bg-white small text-muted">
+                                        <i class="fa-solid fa-circle-info text-primary me-1"></i> Xóa danh mục: Các món liên kết sẽ tự động chuyển về <code>CategoryId = null</code> (không thuộc danh mục nào).
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sản phẩm ẩm thực (ProductApiController) -->
+                            <div class="col-lg-7">
+                                <div class="card border border-slate-200 shadow-sm rounded-3">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <h6 class="fw-bold mb-0"><i class="fa-solid fa-box-open me-2 text-primary"></i>Sản Phẩm & Món Ẩm Thực (Product)</h6>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                                                <i class="fa-solid fa-plus me-1"></i>Thêm Sản Phẩm
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-white border-bottom">
+                                        <div class="row g-2">
+                                            <div class="col-md-7">
+                                                <input type="text" id="productSearchInput" class="form-control form-control-sm" placeholder="Tìm tên món / sản phẩm..." oninput="loadProducts()">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <select id="productCategoryFilter" class="form-select form-select-sm" onchange="loadProducts()">
+                                                    <option value="">Tất cả danh mục</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover align-middle mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>ID</th>
+                                                        <th>Ảnh</th>
+                                                        <th>Tên Món</th>
+                                                        <th>Giá (VNĐ)</th>
+                                                        <th>Danh Mục</th>
+                                                        <th class="text-end">Hành Động</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="productsTableBody">
+                                                    <!-- Loaded dynamically -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: HÓA ĐƠN & ĐƠN HÀNG -->
+                    <div class="tab-pane fade" id="orders-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0">Lịch Sử Hóa Đơn & Đơn Hàng POS</h5>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="loadOrders()"><i class="fa-solid fa-rotate me-1"></i>Làm mới</button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Mã Đơn</th>
+                                        <th>Bàn</th>
+                                        <th>Khách Hàng</th>
+                                        <th>Thu Ngân</th>
+                                        <th>Tổng Món</th>
+                                        <th>Giảm Giá</th>
+                                        <th>Thực Thu</th>
+                                        <th>Thanh Toán</th>
+                                        <th>Thời Gian</th>
+                                        <th class="text-end">Chi Tiết</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ordersTableBody">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: NHÂN SỰ & CHẤM CÔNG -->
+                    <div class="tab-pane fade" id="staff-pane" role="tabpanel">
+                        <div class="row g-4">
+                            <div class="col-lg-7">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="fw-bold mb-0">Danh Sách Nhân Viên</h5>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="loadEmployees()"><i class="fa-solid fa-rotate me-1"></i>Làm mới</button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Họ Tên</th>
+                                                <th>SĐT</th>
+                                                <th>Chức Vụ</th>
+                                                <th>Bậc Lương</th>
+                                                <th>Thẻ NFC</th>
+                                                <th>Mã QR</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="employeesTableBody">
+                                            <!-- Rendered dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-5">
+                                <div class="card border border-slate-200 shadow-sm rounded-3">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                                        <h6 class="fw-bold mb-0"><i class="fa-solid fa-fingerprint me-2 text-success"></i>Lịch Sử Chấm Công NFC / QR</h6>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="loadAttendance()"><i class="fa-solid fa-rotate"></i></button>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                                            <table class="table table-sm table-hover align-middle mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Nhân Viên</th>
+                                                        <th>Loại</th>
+                                                        <th>Phương Thức</th>
+                                                        <th>Thời Gian</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="attendanceTableBody">
+                                                    <!-- Loaded dynamically -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 6: KHÁCH HÀNG & TÍCH ĐIỂM -->
+                    <div class="tab-pane fade" id="customers-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0">Khách Hàng Thành Viên & Tích Điểm</h5>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="loadCustomers()"><i class="fa-solid fa-rotate me-1"></i>Làm mới</button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Họ Tên</th>
+                                        <th>Số Điện Thoại</th>
+                                        <th>Email</th>
+                                        <th>Tổng Chi Tiêu</th>
+                                        <th>Điểm Tích Lũy</th>
+                                        <th>Hạng Thành Viên</th>
+                                        <th>Ưu Đãi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customersTableBody">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 7: NGƯỜI DÙNG & PHÂN QUYỀN (IDENTITY) -->
+                    <div class="tab-pane fade" id="users-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div>
+                                <h5 class="fw-bold mb-0">Quản Lý Tài Khoản & Phân Quyền (Identity)</h5>
+                                <small class="text-muted">Cấp quyền Quản trị viên (Admin) hoặc Người dùng (User)</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="loadUsers()"><i class="fa-solid fa-rotate me-1"></i>Làm mới</button>
+                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#registerUserModal"><i class="fa-solid fa-user-plus me-1"></i>Tạo Tài Khoản</button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tên Đăng Nhập</th>
+                                        <th>Email</th>
+                                        <th>Chữ Cái Viết Tắt</th>
+                                        <th>Số Điện Thoại</th>
+                                        <th>Vai Trò (Role)</th>
+                                        <th class="text-end">Đổi Quyền & Thao Tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 8: SMART AUTH OTP TESTER -->
+                    <div class="tab-pane fade" id="smartauth-pane" role="tabpanel">
+                        <div class="row justify-content-center">
+                            <div class="col-lg-8">
+                                <div class="card border border-primary-subtle shadow-sm rounded-4 p-4">
+                                    <div class="d-flex align-items-center gap-3 mb-3">
+                                        <div class="metric-icon bg-primary text-white"><i class="fa-solid fa-shield-halved"></i></div>
+                                        <div>
+                                            <h5 class="fw-bold mb-0">Thử Nghiệm Tính Năng Smart Auth (Xác Thực OTP Điện Thoại)</h5>
+                                            <small class="text-muted">Tích hợp đăng nhập bằng số điện thoại không cần mật khẩu cho Mobile App & Web API</small>
+                                        </div>
+                                    </div>
+
+                                    <hr>
+
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Bước 1: Nhập Số Điện Thoại</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="fa-solid fa-phone"></i></span>
+                                                <input type="text" id="otpPhoneInput" class="form-control" placeholder="Ví dụ: 0901234567" value="0901234567">
+                                                <button class="btn btn-primary" onclick="requestSmartAuthOtp()">Gửi OTP</button>
+                                            </div>
+                                            <small class="text-muted">Hệ thống sẽ tạo mã 6 chữ số và lưu vào cache 5 phút.</small>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Bước 2: Nhập Mã OTP Đã Nhận</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="fa-solid fa-key"></i></span>
+                                                <input type="text" id="otpCodeInput" class="form-control" placeholder="Nhập mã 6 chữ số" maxlength="6">
+                                                <button class="btn btn-success" onclick="verifySmartAuthOtp()">Xác Thực</button>
+                                            </div>
+                                            <small class="text-muted">Tự động đăng nhập và cấp phát JWT Token.</small>
+                                        </div>
+                                    </div>
+
+                                    <!-- OTP Result Display -->
+                                    <div id="otpConsoleAlert" class="mt-4 p-3 rounded-3 bg-light border border-slate-200 d-none">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="fw-bold" id="otpResultTitle">Thông Báo Kết Quả</span>
+                                            <span class="badge bg-primary" id="otpCodeBadge">OTP: ---</span>
+                                        </div>
+                                        <pre class="mb-0 bg-dark text-light p-3 rounded-2 small" id="otpResultJson"></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODALS SECTION -->
+
+    <!-- Modal Xem Chi Tiết Bàn & Gọi Món -->
+    <div class="modal fade" id="tableDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content rounded-4">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="tableModalTitle">Chi Tiết Bàn</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <span class="badge fs-6 me-2" id="tableModalStatusBadge">Trạng thái</span>
+                            <span class="text-muted" id="tableModalFloorSeats">Tầng 1 - 4 ghế</span>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-success" onclick="updateCurrentTableStatus('TRONG')">Trống</button>
+                            <button class="btn btn-outline-danger" onclick="updateCurrentTableStatus('DANG_PHUC_VU')">Đang phục vụ</button>
+                            <button class="btn btn-outline-warning" onclick="updateCurrentTableStatus('DA_DAT')">Đã đặt</button>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mb-2">Các món đang gọi tại bàn:</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Tên món</th>
+                                    <th>Đơn giá</th>
+                                    <th>Số lượng</th>
+                                    <th>Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableActiveItemsBody">
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">Tạm tính: <span class="text-danger" id="tableActiveSubtotal">0 đ</span></h5>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-danger" onclick="clearTableActiveOrders()"><i class="fa-solid fa-trash me-1"></i>Dọn bàn / Xóa order</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm Bàn Mới -->
+    <div class="modal fade" id="addTableModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Thêm Bàn Ăn Mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên bàn</label>
+                        <input type="text" id="newTableName" class="form-control" placeholder="Ví dụ: Bàn 104, Bàn VIP 3...">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Khu vực / Tầng</label>
+                            <select id="newTableFloor" class="form-select">
+                                <option value="Tầng 1">Tầng 1</option>
+                                <option value="Tầng 2">Tầng 2</option>
+                                <option value="Phòng VIP">Phòng VIP</option>
+                                <option value="Sân Vườn">Sân Vườn</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Số ghế</label>
+                            <input type="number" id="newTableSeats" class="form-control" value="4" min="1" max="50">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="submitAddTable()">Lưu Bàn</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm Món Vào Thực Đơn (MenuItem) -->
+    <div class="modal fade" id="addMenuItemModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Thêm Món Ăn Mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên món ăn</label>
+                        <input type="text" id="newMenuItemName" class="form-control" placeholder="Ví dụ: Lẩu Thái Chua Cay...">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Phân loại</label>
+                            <input type="text" id="newMenuItemCategory" class="form-control" list="categoryOptions" placeholder="Khai vị, Món chính...">
+                            <datalist id="categoryOptions">
+                                <option value="Khai vị">
+                                <option value="Món chính">
+                                <option value="Hải sản">
+                                <option value="Lẩu & Nướng">
+                                <option value="Đồ uống">
+                                <option value="Tráng miệng">
+                            </datalist>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Đơn giá (VNĐ)</label>
+                            <input type="number" id="newMenuItemPrice" class="form-control" placeholder="120000" min="0">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mô tả món ăn</label>
+                        <textarea id="newMenuItemDesc" class="form-control" rows="2" placeholder="Thành phần, hương vị đặc sắc..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="submitAddMenuItem()">Lưu Món</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm Danh Mục (CategoryApiController) -->
+    <div class="modal fade" id="addCategoryModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Thêm Danh Mục Ẩm Thực</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên danh mục</label>
+                        <input type="text" id="newCategoryName" class="form-control" placeholder="Ví dụ: Món Khai Vị, Món Nướng Than Hoa...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mô tả danh mục</label>
+                        <textarea id="newCategoryDesc" class="form-control" rows="3" placeholder="Mô tả nhóm món ăn..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-warning" onclick="submitAddCategory()">Lưu Danh Mục</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm Sản Phẩm Ẩm Thực (ProductApiController) -->
+    <div class="modal fade" id="addProductModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Thêm Sản Phẩm Ẩm Thực Mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên món / sản phẩm</label>
+                        <input type="text" id="newProductName" class="form-control" placeholder="Ví dụ: Bò Úc Lúc Lắc...">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Đơn giá (VNĐ)</label>
+                            <input type="number" id="newProductPrice" class="form-control" placeholder="150000" min="0">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Danh mục</label>
+                            <select id="newProductCategoryId" class="form-select">
+                                <option value="">-- Chưa phân loại --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Link Hình Ảnh</label>
+                        <input type="text" id="newProductImage" class="form-control" placeholder="https://... hoặc tải ảnh">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mô tả sản phẩm</label>
+                        <textarea id="newProductDesc" class="form-control" rows="2" placeholder="Mô tả nguyên liệu, hương vị..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="submitAddProduct()">Lưu Sản Phẩm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Đăng Ký Tài Khoản Mới (Identity) -->
+    <div class="modal fade" id="registerUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Tạo Tài Khoản Người Dùng Mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên đăng nhập</label>
+                        <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: nhanvien1, thungan2...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input type="email" id="regEmail" class="form-control" placeholder="nhanvien1@restaurant.com">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Mật khẩu</label>
+                            <input type="password" id="regPassword" class="form-control" placeholder="Tối thiểu 6 ký tự">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Chữ cái viết tắt</label>
+                            <input type="text" id="regInitials" class="form-control" placeholder="NV1" maxlength="5">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Phân quyền</label>
+                        <select id="regRole" class="form-select">
+                            <option value="User">Người Dùng Phổ Thông (User)</option>
+                            <option value="Admin">Quản Trị Viên (Admin)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="submitRegisterUser()">Tạo Tài Khoản</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Đăng Nhập Tùy Chỉnh -->
+    <div class="modal fade" id="customLoginModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Đăng Nhập Tài Khoản</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên đăng nhập</label>
+                        <input type="text" id="loginUsernameInput" class="form-control" placeholder="admin hoặc user">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mật khẩu</label>
+                        <input type="password" id="loginPasswordInput" class="form-control" placeholder="123456">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" onclick="submitCustomLogin()">Đăng Nhập</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Toast Container for Real-time Notifications -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;" id="liveToastContainer"></div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Microsoft SignalR JavaScript Client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+
+    <!-- App JavaScript Logic -->
+    <script>
+        // Store JWT token in local storage
+        let currentToken = localStorage.getItem('jwt_token') || '';
+        let currentUserRole = localStorage.getItem('user_role') || 'Admin';
+        let currentUsername = localStorage.getItem('user_name') || 'admin';
+        let currentTableId = null;
+
+        // Base API helper
+        async function apiFetch(endpoint, options = {}) {
+            options.headers = options.headers || {};
+            if (currentToken) {
+                options.headers['Authorization'] = `Bearer ${currentToken}`;
+            }
+            if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+                options.headers['Content-Type'] = 'application/json';
+                options.body = JSON.stringify(options.body);
+            }
+            try {
+                const response = await fetch(endpoint, options);
+                if (response.status === 401) {
+                    console.warn('Yêu cầu cần xác thực (401). Đang thử đăng nhập tự động admin...');
+                    await quickLogin('admin', '123456');
+                    return apiFetch(endpoint, options);
+                }
+                return response;
+            } catch (err) {
+                console.error(`Lỗi gọi API [${endpoint}]:`, err);
+                throw err;
+            }
+        }
+
+        // Init on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            updateAccountBadge();
+            // Automatically quick login as admin if no token
+            if (!currentToken) {
+                await quickLogin('admin', '123456');
+            }
+            loadOverviewMetrics();
+            loadTables();
+            loadMenuItems();
+            loadCategories();
+            loadProducts();
+            loadOrders();
+            loadEmployees();
+            loadAttendance();
+            loadCustomers();
+            loadUsers();
+            loadRecentNotifications();
+            initRealtimeNotifications();
+
+            // Refresh metrics every 25s
+            setInterval(loadOverviewMetrics, 25000);
+        });
+
+        function updateAccountBadge() {
+            const badge = document.getElementById('currentAccountBadge');
+            if (currentUsername) {
+                badge.innerHTML = `<span class="badge ${currentUserRole === 'Admin' ? 'bg-danger' : 'bg-primary'} me-1">${currentUserRole}</span> ${currentUsername}`;
+            } else {
+                badge.textContent = 'Khách (Chưa đăng nhập)';
+            }
+        }
+
+        // Quick Login Helper
+        async function quickLogin(username, password) {
+            try {
+                const res = await fetch('/api/Authenticate/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.status && data.token) {
+                    currentToken = data.token;
+                    currentUserRole = data.role || 'User';
+                    currentUsername = data.username || username;
+                    localStorage.setItem('jwt_token', currentToken);
+                    localStorage.setItem('user_role', currentUserRole);
+                    localStorage.setItem('user_name', currentUsername);
+                    updateAccountBadge();
+                    return true;
+                }
+            } catch (e) {
+                console.error("Lỗi quick login:", e);
+            }
+            return false;
+        }
+
+        async function submitCustomLogin() {
+            const username = document.getElementById('loginUsernameInput').value.trim();
+            const password = document.getElementById('loginPasswordInput').value;
+            if (!username || !password) return alert('Vui lòng nhập tên đăng nhập và mật khẩu.');
+
+            const ok = await quickLogin(username, password);
+            if (ok) {
+                bootstrap.Modal.getInstance(document.getElementById('customLoginModal'))?.hide();
+                alert(`Đăng nhập thành công với vai trò: ${currentUserRole}!`);
+                location.reload();
+            } else {
+                alert('Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.');
+            }
+        }
+
+        function logoutUser() {
+            fetch('/api/Authenticate/logout', { method: 'POST' });
+            currentToken = '';
+            currentUserRole = '';
+            currentUsername = '';
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_name');
+            updateAccountBadge();
+            alert('Đã đăng xuất thành công.');
+            location.reload();
+        }
+
+        // 1. Thống kê tổng quan
+        async function loadOverviewMetrics() {
+            try {
+                const res = await fetch('/api/app/overview');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('serverStatusText').textContent = `Máy chủ: ${data.system.status} (${data.system.uptimeFormatted})`;
+                    document.getElementById('statActiveTables').textContent = data.restaurantPOS.tables.active;
+                    document.getElementById('statTotalTables').textContent = `/ ${data.restaurantPOS.tables.total} bàn`;
+
+                    document.getElementById('statTodayOrders').textContent = data.restaurantPOS.orders.todayOrdersCount;
+                    document.getElementById('statTotalOrders').textContent = `Tổng: ${data.restaurantPOS.orders.totalOrders} đơn`;
+
+                    document.getElementById('statTodayRevenue').textContent = Number(data.restaurantPOS.orders.todayRevenue).toLocaleString('vi-VN') + ' đ';
+                    document.getElementById('statTotalRevenue').textContent = `Toàn thời gian: ${Number(data.restaurantPOS.orders.totalRevenue).toLocaleString('vi-VN')} đ`;
+
+                    document.getElementById('statMenuItems').textContent = data.restaurantPOS.menuItemsCount;
+                    document.getElementById('statProducts').textContent = data.catalog.totalProducts;
+                    document.getElementById('statCategories').textContent = `/ ${data.catalog.totalCategories} danh mục`;
+
+                    document.getElementById('statUsers').textContent = data.users.totalUsers;
+                    document.getElementById('statAdmins').textContent = `${data.users.adminCount} Admin / ${data.users.userCount} User`;
+
+                    // Cập nhật thông tin IP kết nối mạng LAN cho App
+                    if (data.system && data.system.lanIps && data.system.lanIps.length > 0) {
+                        const localIp = data.system.lanIps[0];
+                        const lanUrl = `http://${localIp}:5276/api/`;
+                        const ipEl = document.getElementById('serverLanIpDisplay');
+                        if (ipEl) ipEl.textContent = lanUrl;
+                        const snippetEl = document.getElementById('lanEnvSnippet');
+                        if (snippetEl) snippetEl.textContent = `BASE_URL=${lanUrl}`;
+                    }
+                }
+            } catch (e) {
+                console.error("Lỗi tải overview:", e);
+            }
+        }
+
+        // 2. Sơ đồ bàn ăn
+        async function loadTables() {
+            const container = document.getElementById('tablesContainer');
+            try {
+                const res = await fetch('/api/tables');
+                const result = await res.json();
+                if (result.success) {
+                    const tables = result.data;
+                    if (!tables || tables.length === 0) {
+                        container.innerHTML = '<div class="col-12 text-center py-4 text-muted">Chưa có bàn ăn nào.</div>';
+                        return;
+                    }
+
+                    container.innerHTML = tables.map(t => {
+                        let statusText = 'Trống';
+                        let statusBadge = 'bg-success';
+                        if (t.status === 'DANG_PHUC_VU') {
+                            statusText = 'Đang phục vụ';
+                            statusBadge = 'bg-danger';
+                        } else if (t.status === 'DA_DAT') {
+                            statusText = 'Đã đặt trước';
+                            statusBadge = 'bg-warning text-dark';
+                        }
+
+                        return `
+                            <div class="col-6 col-md-4 col-lg-3 col-xl-2">
+                                <div class="card p-3 table-card table-status-${t.status}" onclick="openTableDetail(${t.id}, '${t.name}', '${t.floor}', ${t.seats}, '${t.status}')">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold mb-0">${t.name}</h6>
+                                        <span class="badge ${statusBadge}">${statusText}</span>
+                                    </div>
+                                    <div class="small mb-1"><i class="fa-solid fa-layer-group me-1"></i>${t.floor}</div>
+                                    <div class="small"><i class="fa-solid fa-users me-1"></i>${t.seats} chỗ ngồi</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (e) {
+                container.innerHTML = '<div class="col-12 text-danger">Không thể tải dữ liệu bàn ăn.</div>';
+            }
+        }
+
+        async function openTableDetail(id, name, floor, seats, status) {
+            currentTableId = id;
+            document.getElementById('tableModalTitle').textContent = `Chi tiết ${name}`;
+            document.getElementById('tableModalFloorSeats').textContent = `${floor} • ${seats} chỗ ngồi`;
+            
+            const badge = document.getElementById('tableModalStatusBadge');
+            badge.className = 'badge fs-6 me-2 ' + (status === 'DANG_PHUC_VU' ? 'bg-danger' : status === 'DA_DAT' ? 'bg-warning text-dark' : 'bg-success');
+            badge.textContent = status === 'DANG_PHUC_VU' ? 'Đang phục vụ' : status === 'DA_DAT' ? 'Đã đặt' : 'Trống';
+
+            const tbody = document.getElementById('tableActiveItemsBody');
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Đang tải món...</td></tr>';
+
+            const modal = new bootstrap.Modal(document.getElementById('tableDetailModal'));
+            modal.show();
+
+            try {
+                const res = await fetch(`/api/tables/${id}`);
+                const data = await res.json();
+                if (data.success && data.activeItems) {
+                    if (data.activeItems.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Bàn hiện chưa gọi món nào.</td></tr>';
+                        document.getElementById('tableActiveSubtotal').textContent = '0 đ';
+                    } else {
+                        let total = 0;
+                        tbody.innerHTML = data.activeItems.map(i => {
+                            const sub = i.price * i.quantity;
+                            total += sub;
+                            return `
+                                <tr>
+                                    <td><strong>${i.menuItemName}</strong></td>
+                                    <td>${Number(i.price).toLocaleString('vi-VN')} đ</td>
+                                    <td>${i.quantity}</td>
+                                    <td class="fw-bold">${Number(sub).toLocaleString('vi-VN')} đ</td>
+                                </tr>
+                            `;
+                        }).join('');
+                        document.getElementById('tableActiveSubtotal').textContent = Number(total).toLocaleString('vi-VN') + ' đ';
+                    }
+                }
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi tải dữ liệu món.</td></tr>';
+            }
+        }
+
+        async function updateCurrentTableStatus(newStatus) {
+            if (!currentTableId) return;
+            try {
+                const res = await apiFetch(`/api/tables/${currentTableId}/status`, {
+                    method: 'PUT',
+                    body: { status: newStatus }
+                });
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('tableDetailModal'))?.hide();
+                    loadTables();
+                    loadOverviewMetrics();
+                }
+            } catch (e) {
+                alert('Không thể cập nhật trạng thái bàn.');
+            }
+        }
+
+        async function clearTableActiveOrders() {
+            if (!currentTableId) return;
+            if (!confirm('Bạn có chắc chắn muốn dọn bàn và giải phóng đơn gọi này?')) return;
+            try {
+                const res = await apiFetch(`/api/tables/${currentTableId}/active-order`, { method: 'DELETE' });
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('tableDetailModal'))?.hide();
+                    loadTables();
+                    loadOverviewMetrics();
+                }
+            } catch (e) {
+                alert('Không thể dọn bàn.');
+            }
+        }
+
+        async function submitAddTable() {
+            const name = document.getElementById('newTableName').value.trim();
+            const floor = document.getElementById('newTableFloor').value;
+            const seats = parseInt(document.getElementById('newTableSeats').value) || 4;
+
+            if (!name) return alert('Vui lòng nhập tên bàn.');
+
+            try {
+                const res = await apiFetch('/api/tables', {
+                    method: 'POST',
+                    body: { name, floor, seats, status: 'TRONG' }
+                });
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('addTableModal'))?.hide();
+                    document.getElementById('newTableName').value = '';
+                    loadTables();
+                    loadOverviewMetrics();
+                }
+            } catch (e) {
+                alert('Không thể thêm bàn.');
+            }
+        }
+
+        // 3. Thực đơn món ăn
+        let allMenuItems = [];
+        async function loadMenuItems() {
+            try {
+                const res = await fetch('/api/menu-items');
+                const json = await res.json();
+                if (json.success) {
+                    allMenuItems = json.data || [];
+                    renderMenuItems(allMenuItems);
+                }
+            } catch (e) {
+                console.error("Lỗi tải món ăn:", e);
+            }
+        }
+
+        function renderMenuItems(items) {
+            const tbody = document.getElementById('menuTableBody');
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Không tìm thấy món ăn nào.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map(m => `
+                <tr>
+                    <td><code>#${m.id}</code></td>
+                    <td><strong class="text-dark">${m.name}</strong></td>
+                    <td><span class="badge bg-secondary-subtle text-dark">${m.category}</span></td>
+                    <td class="fw-bold text-success">${Number(m.price).toLocaleString('vi-VN')} đ</td>
+                    <td class="text-muted small">${m.description || '---'}</td>
+                    <td><span class="badge ${m.isAvailable ? 'bg-success' : 'bg-danger'}">${m.isAvailable ? 'Còn món' : 'Hết món'}</span></td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteMenuItem(${m.id})"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterMenuItems() {
+            const q = document.getElementById('menuSearchInput').value.toLowerCase().trim();
+            const filtered = allMenuItems.filter(m => m.name.toLowerCase().includes(q) || (m.category && m.category.toLowerCase().includes(q)));
+            renderMenuItems(filtered);
+        }
+
+        async function submitAddMenuItem() {
+            const name = document.getElementById('newMenuItemName').value.trim();
+            const category = document.getElementById('newMenuItemCategory').value.trim() || 'Món chính';
+            const price = parseFloat(document.getElementById('newMenuItemPrice').value) || 0;
+            const description = document.getElementById('newMenuItemDesc').value.trim();
+
+            if (!name) return alert('Vui lòng nhập tên món.');
+
+            try {
+                const res = await apiFetch('/api/menu-items', {
+                    method: 'POST',
+                    body: { name, category, price, description, isAvailable: true }
+                });
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('addMenuItemModal'))?.hide();
+                    document.getElementById('newMenuItemName').value = '';
+                    document.getElementById('newMenuItemPrice').value = '';
+                    loadMenuItems();
+                    loadOverviewMetrics();
+                }
+            } catch (e) {
+                alert('Không thể lưu món ăn.');
+            }
+        }
+
+        async function deleteMenuItem(id) {
+            if (!confirm(`Xóa món ăn #${id}?`)) return;
+            try {
+                const res = await apiFetch(`/api/menu-items/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadMenuItems();
+                    loadOverviewMetrics();
+                }
+            } catch (e) {
+                alert('Không thể xóa món ăn.');
+            }
+        }
+
+        // 4. Sản Phẩm & Danh Mục Nhà Hàng (CategoryApiController & ProductApiController)
+        let globalCategories = [];
+        async function loadCategories() {
+            try {
+                const res = await fetch('/api/CategoryApi');
+                const cats = await res.json();
+                globalCategories = cats || [];
+                renderCategories(globalCategories);
+
+                // Update Category dropdowns
+                const filterSelect = document.getElementById('productCategoryFilter');
+                const addProductSelect = document.getElementById('newProductCategoryId');
+
+                filterSelect.innerHTML = '<option value="">Tất cả danh mục</option>' + globalCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                addProductSelect.innerHTML = '<option value="">-- Chưa phân loại --</option>' + globalCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            } catch (e) {
+                console.error("Lỗi tải danh mục:", e);
+            }
+        }
+
+        function renderCategories(cats) {
+            const tbody = document.getElementById('categoriesTableBody');
+            if (cats.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Chưa có danh mục nào.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = cats.map(c => `
+                <tr>
+                    <td><code>#${c.id}</code></td>
+                    <td><strong>${c.name}</strong><br><small class="text-muted">${c.description || ''}</small></td>
+                    <td><span class="badge bg-primary-subtle text-primary">${c.productsCount || (c.products ? c.products.length : 0)} món</span></td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory(${c.id}, '${c.name}')"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function submitAddCategory() {
+            const name = document.getElementById('newCategoryName').value.trim();
+            const description = document.getElementById('newCategoryDesc').value.trim();
+            if (!name) return alert('Vui lòng nhập tên danh mục.');
+
+            try {
+                const res = await apiFetch('/api/CategoryApi', {
+                    method: 'POST',
+                    body: { name, description }
+                });
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'))?.hide();
+                    document.getElementById('newCategoryName').value = '';
+                    document.getElementById('newCategoryDesc').value = '';
+                    loadCategories();
+                    loadProducts();
+                    loadOverviewMetrics();
+                } else {
+                    const err = await res.json();
+                    alert(`Lỗi: ${err.message || 'Chỉ tài khoản Admin mới có quyền thêm danh mục'}`);
+                }
+            } catch (e) {
+                alert('Không thể thêm danh mục.');
+            }
+        }
+
+        async function deleteCategory(id, name) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa danh mục '${name}'?\n\nLưu ý: Tất cả món ăn thuộc danh mục này sẽ tự động chuyển về trạng thái Chưa phân loại (CategoryId = null) theo đúng quy định.`)) return;
+
+            try {
+                const res = await apiFetch(`/api/CategoryApi/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    const data = await res.json();
+                    alert(data.message || 'Đã xóa danh mục thành công!');
+                    loadCategories();
+                    loadProducts();
+                    loadOverviewMetrics();
+                } else {
+                    const err = await res.json();
+                    alert(`Lỗi: ${err.message || 'Yêu cầu quyền Admin để xóa danh mục'}`);
+                }
+            } catch (e) {
+                alert('Không thể xóa danh mục.');
+            }
+        }
+
+        async function loadProducts() {
+            const search = document.getElementById('productSearchInput').value.trim();
+            const catId = document.getElementById('productCategoryFilter').value;
+
+            let url = '/api/ProductApi?';
+            if (search) url += `search=${encodeURIComponent(search)}&`;
+            if (catId) url += `categoryId=${encodeURIComponent(catId)}&`;
+
+            try {
+                const res = await apiFetch(url);
+                if (!res.ok) return;
+                const products = await res.json();
+                renderProducts(products);
+            } catch (e) {
+                console.error("Lỗi tải sản phẩm:", e);
+            }
+        }
+
+        function renderProducts(products) {
+            const tbody = document.getElementById('productsTableBody');
+            if (!products || products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Chưa có sản phẩm / món ăn nào.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = products.map(p => `
+                <tr>
+                    <td><code>#${p.id}</code></td>
+                    <td>
+                        <img src="${p.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120'}" class="product-img-thumb" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120'">
+                    </td>
+                    <td>
+                        <strong class="text-dark">${p.name}</strong><br>
+                        <small class="text-muted text-truncate d-inline-block" style="max-width: 220px;">${p.description || ''}</small>
+                    </td>
+                    <td class="fw-bold text-success">${Number(p.price).toLocaleString('vi-VN')} đ</td>
+                    <td>
+                        ${p.category ? `<span class="badge bg-warning-subtle text-dark">${p.category.name}</span>` : '<span class="badge bg-secondary-subtle text-muted">Chưa phân loại</span>'}
+                    </td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${p.id})"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function submitAddProduct() {
+            const name = document.getElementById('newProductName').value.trim();
+            const price = parseFloat(document.getElementById('newProductPrice').value) || 0;
+            const categoryIdVal = document.getElementById('newProductCategoryId').value;
+            const categoryId = categoryIdVal ? parseInt(categoryIdVal) : null;
+            const image = document.getElementById('newProductImage').value.trim();
+            const description = document.getElementById('newProductDesc').value.trim();
+
+            if (!name) return alert('Vui lòng nhập tên món/sản phẩm.');
+
+            try {
+                const res = await apiFetch('/api/ProductApi', {
+                    method: 'POST',
+                    body: { name, price, categoryId, image, description }
+                });
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('addProductModal'))?.hide();
+                    document.getElementById('newProductName').value = '';
+                    document.getElementById('newProductPrice').value = '';
+                    document.getElementById('newProductImage').value = '';
+                    document.getElementById('newProductDesc').value = '';
+                    loadProducts();
+                    loadCategories();
+                    loadOverviewMetrics();
+                } else {
+                    const err = await res.json();
+                    alert(`Lỗi: ${err.message || 'Yêu cầu quyền Admin'}`);
+                }
+            } catch (e) {
+                alert('Không thể thêm sản phẩm.');
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm(`Xóa món/sản phẩm #${id}?`)) return;
+            try {
+                const res = await apiFetch(`/api/ProductApi/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadProducts();
+                    loadCategories();
+                    loadOverviewMetrics();
+                } else {
+                    const err = await res.json();
+                    alert(`Lỗi: ${err.message || 'Yêu cầu quyền Admin'}`);
+                }
+            } catch (e) {
+                alert('Không thể xóa sản phẩm.');
+            }
+        }
+
+        // 5. Hóa đơn POS
+        async function loadOrders() {
+            try {
+                const res = await fetch('/api/orders?limit=30');
+                const json = await res.json();
+                if (json.success) {
+                    const orders = json.data || [];
+                    const tbody = document.getElementById('ordersTableBody');
+                    if (orders.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">Chưa có hóa đơn nào.</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = orders.map(o => `
+                        <tr>
+                            <td><code>#${o.id}</code></td>
+                            <td><strong class="text-primary">${o.tableName}</strong></td>
+                            <td>${o.customerName} <span class="badge bg-light text-dark">${o.customerTierName || ''}</span></td>
+                            <td>${o.employeeName}</td>
+                            <td>${o.itemsCount} món</td>
+                            <td>${o.discountPercent > 0 ? `<span class="badge bg-success-subtle text-success">-${o.discountPercent}%</span>` : '0%'}</td>
+                            <td class="fw-bold text-success">${Number(o.finalTotal).toLocaleString('vi-VN')} đ</td>
+                            <td><span class="badge bg-info-subtle text-dark">${o.paymentMethod}</span></td>
+                            <td class="small text-muted">${o.formattedDate}</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="alert('Món trong đơn: ' + '${o.items ? o.items.map(i => i.menuItemName + ' x' + i.quantity).join(', ') : ''}')"><i class="fa-solid fa-eye"></i></button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error("Lỗi tải đơn hàng:", e);
+            }
+        }
+
+        // 6. Nhân sự & Chấm công
+        async function loadEmployees() {
+            try {
+                const res = await fetch('/api/employees');
+                const json = await res.json();
+                if (json.success) {
+                    const emps = json.data || [];
+                    const tbody = document.getElementById('employeesTableBody');
+                    tbody.innerHTML = emps.map(e => `
+                        <tr>
+                            <td><code>#${e.id}</code></td>
+                            <td><strong>${e.name}</strong></td>
+                            <td>${e.phone}</td>
+                            <td><span class="badge bg-secondary-subtle text-dark">${e.position}</span></td>
+                            <td><span class="badge bg-warning-subtle text-dark">${e.tier}</span></td>
+                            <td><code>${e.nfcTagCode || '---'}</code></td>
+                            <td><code>${e.qrCodeContent || '---'}</code></td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error("Lỗi tải nhân viên:", e);
+            }
+        }
+
+        async function loadAttendance() {
+            try {
+                const res = await fetch('/api/attendance');
+                const json = await res.json();
+                if (json.success) {
+                    const att = json.data || [];
+                    const tbody = document.getElementById('attendanceTableBody');
+                    tbody.innerHTML = att.slice(0, 15).map(a => `
+                        <tr>
+                            <td><strong>${a.employeeName}</strong></td>
+                            <td><span class="badge ${a.type === 'CHECK_IN' ? 'bg-success' : 'bg-secondary'}">${a.type}</span></td>
+                            <td><span class="badge bg-info-subtle text-dark">${a.method}</span></td>
+                            <td class="small text-muted">${a.formattedTime}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error("Lỗi tải chấm công:", e);
+            }
+        }
+
+        // 7. Khách hàng & Điểm thưởng
+        async function loadCustomers() {
+            try {
+                const res = await fetch('/api/customers');
+                const json = await res.json();
+                if (json.success) {
+                    const custs = json.data || [];
+                    const tbody = document.getElementById('customersTableBody');
+                    tbody.innerHTML = custs.map(c => `
+                        <tr>
+                            <td><code>#${c.id}</code></td>
+                            <td><strong>${c.name}</strong></td>
+                            <td>${c.phone}</td>
+                            <td class="small text-muted">${c.email || '---'}</td>
+                            <td class="fw-bold text-success">${Number(c.totalSpent).toLocaleString('vi-VN')} đ</td>
+                            <td><span class="badge bg-warning text-dark"><i class="fa-solid fa-star me-1"></i>${c.loyaltyPoints}</span></td>
+                            <td><span class="badge bg-primary-subtle text-primary">${c.tierDisplayName}</span></td>
+                            <td><span class="badge bg-success-subtle text-success">Giảm ${c.discountPercent}%</span></td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error("Lỗi tải khách hàng:", e);
+            }
+        }
+
+        // 8. Quản lý người dùng Identity & Phân quyền
+        async function loadUsers() {
+            try {
+                const res = await apiFetch('/api/Authenticate/users');
+                if (!res.ok) return;
+                const json = await res.json();
+                if (json.status && json.data) {
+                    const users = json.data;
+                    const tbody = document.getElementById('usersTableBody');
+                    tbody.innerHTML = users.map(u => {
+                        const isAdmin = u.roles && u.roles.includes('Admin');
+                        return `
+                            <tr>
+                                <td><strong>${u.userName}</strong></td>
+                                <td class="small text-muted">${u.email || '---'}</td>
+                                <td><span class="badge bg-light text-dark">${u.initials || '---'}</span></td>
+                                <td>${u.phoneNumber || '---'}</td>
+                                <td>
+                                    <span class="badge ${isAdmin ? 'badge-role-Admin' : 'badge-role-User'}">
+                                        ${isAdmin ? '<i class="fa-solid fa-shield me-1"></i>Admin' : '<i class="fa-solid fa-user me-1"></i>User'}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm ${isAdmin ? 'btn-outline-primary' : 'btn-outline-warning'} me-1" onclick="changeUserRole('${u.id}', '${isAdmin ? 'User' : 'Admin'}')">
+                                        ${isAdmin ? 'Hạ xuống User' : 'Nâng lên Admin'}
+                                    </button>
+                                    ${u.userName.toLowerCase() !== 'admin' ? `
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u.id}', '${u.userName}')"><i class="fa-solid fa-user-xmark"></i></button>
+                                    ` : ''}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (e) {
+                console.error("Lỗi tải users:", e);
+            }
+        }
+
+        async function changeUserRole(userId, newRole) {
+            try {
+                const res = await apiFetch(`/api/Authenticate/users/${userId}/role`, {
+                    method: 'PUT',
+                    body: { role: newRole }
+                });
+                if (res.ok) {
+                    loadUsers();
+                    loadOverviewMetrics();
+                } else {
+                    const err = await res.json();
+                    alert(`Lỗi: ${err.message || 'Không thể đổi quyền'}`);
+                }
+            } catch (e) {
+                alert('Không thể cập nhật quyền người dùng.');
+            }
+        }
+
+        async function deleteUser(userId, userName) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản '${userName}'?`)) return;
+            try {
+                const res = await apiFetch(`/api/Authenticate/users/${userId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadUsers();
+                    loadOverviewMetrics();
+                } else {
+                    const err = await res.json();
+                    alert(`Lỗi: ${err.message || 'Không thể xóa'}`);
+                }
+            } catch (e) {
+                alert('Không thể xóa tài khoản.');
+            }
+        }
+
+        async function submitRegisterUser() {
+            const username = document.getElementById('regUsername').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const initials = document.getElementById('regInitials').value.trim();
+            const role = document.getElementById('regRole').value;
+
+            if (!username || !email || !password) return alert('Vui lòng nhập đầy đủ Username, Email và Mật khẩu.');
+
+            try {
+                const res = await fetch('/api/Authenticate/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password, initials, role })
+                });
+                const data = await res.json();
+                if (data.status) {
+                    bootstrap.Modal.getInstance(document.getElementById('registerUserModal'))?.hide();
+                    alert(`Tạo tài khoản '${username}' (${role}) thành công!`);
+                    loadUsers();
+                    loadOverviewMetrics();
+                } else {
+                    alert(`Lỗi: ${data.message}`);
+                }
+            } catch (e) {
+                alert('Không thể tạo tài khoản.');
+            }
+        }
+
+        // 9. Smart Auth OTP Tester
+        async function requestSmartAuthOtp() {
+            const phone = document.getElementById('otpPhoneInput').value.trim();
+            if (!phone) return alert('Vui lòng nhập số điện thoại.');
+
+            try {
+                const res = await fetch('/api/Authenticate/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber: phone })
+                });
+                const data = await res.json();
+                if (data.status) {
+                    document.getElementById('otpCodeInput').value = data.otp;
+                    document.getElementById('otpCodeBadge').textContent = `Mã OTP: ${data.otp}`;
+                    document.getElementById('otpResultTitle').textContent = `Mã OTP đã gửi đến ${phone}`;
+                    document.getElementById('otpResultJson').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('otpConsoleAlert').classList.remove('d-none');
+                } else {
+                    alert(data.message || 'Không thể gửi OTP.');
+                }
+            } catch (e) {
+                alert('Lỗi gửi OTP.');
+            }
+        }
+
+        async function verifySmartAuthOtp() {
+            const phone = document.getElementById('otpPhoneInput').value.trim();
+            const otp = document.getElementById('otpCodeInput').value.trim();
+            if (!phone || !otp) return alert('Vui lòng nhập cả số điện thoại và mã OTP.');
+
+            try {
+                const res = await fetch('/api/Authenticate/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber: phone, otpCode: otp })
+                });
+                const data = await res.json();
+                if (data.status && data.token) {
+                    currentToken = data.token;
+                    currentUserRole = data.role || 'User';
+                    currentUsername = data.username || phone;
+                    localStorage.setItem('jwt_token', currentToken);
+                    localStorage.setItem('user_role', currentUserRole);
+                    localStorage.setItem('user_name', currentUsername);
+                    updateAccountBadge();
+
+                    document.getElementById('otpResultTitle').textContent = 'Xác thực Smart Auth Thành Công!';
+                    document.getElementById('otpResultJson').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('otpConsoleAlert').classList.remove('d-none');
+
+                    alert(`Đăng nhập Smart Auth thành công cho SĐT ${phone}! Token JWT đã được áp dụng.`);
+                } else {
+                    alert(data.message || 'Mã OTP không hợp lệ.');
+                }
+            } catch (e) {
+                alert('Lỗi xác thực OTP.');
+            }
+        }
+
+        // ============================================================
+        // 10. REAL-TIME NOTIFICATIONS & MULTI-DEVICE SYNC (SignalR)
+        // ============================================================
+        let unreadNotifCount = 0;
+        let signalrConnection = null;
+        let allLoadedActivities = [];
+        let currentActivityFilter = 'all';
+
+        function openNotificationsTab() {
+            const notifTab = document.getElementById('notifications-tab');
+            if (notifTab) {
+                bootstrap.Tab.getOrCreateInstance(notifTab).show();
+            }
+            unreadNotifCount = 0;
+            updateNotifBadges();
+        }
+
+        function updateNotifBadges() {
+            const navBadge = document.getElementById('navNotifBadge');
+            const tabBadge = document.getElementById('tabNotifCount');
+            if (unreadNotifCount > 0) {
+                if (navBadge) { navBadge.textContent = unreadNotifCount; navBadge.style.display = 'inline-block'; }
+                if (tabBadge) { tabBadge.textContent = unreadNotifCount; tabBadge.style.display = 'inline-block'; }
+            } else {
+                if (navBadge) navBadge.style.display = 'none';
+                if (tabBadge) tabBadge.style.display = 'none';
+            }
+        }
+
+        function playNotificationBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.36);
+            } catch (e) {}
+        }
+
+        function showLiveToast(activity) {
+            const toastContainer = document.getElementById('liveToastContainer');
+            if (!toastContainer) return;
+
+            const toastId = 'toast_' + Date.now();
+            const categoryBadge = getCategoryBadge(activity.category);
+
+            const toastHtml = `
+                <div id="${toastId}" class="toast align-items-center shadow-lg border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true" style="min-width: 330px; background: white; border-left: 5px solid ${activity.status === 'ERROR' ? '#dc3545' : '#0d6efd'} !important;">
+                    <div class="toast-header bg-light">
+                        <i class="fa-solid fa-bell text-warning me-2"></i>
+                        <strong class="me-auto text-primary">${escapeHtml(activity.action || 'Hoạt Động App')}</strong>
+                        <small class="text-muted">${activity.formattedTime || 'Vừa xong'}</small>
+                        <button type="button" class="btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        <div class="fw-semibold text-dark mb-1">${escapeHtml(activity.description || '')}</div>
+                        <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                            <small class="text-muted"><i class="fa-solid fa-mobile-screen me-1"></i>${escapeHtml(activity.source || 'App')} (${escapeHtml(activity.clientIp || 'LAN')})</small>
+                            ${categoryBadge}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            const toastEl = document.getElementById(toastId);
+            if (toastEl) {
+                const toast = new bootstrap.Toast(toastEl, { delay: 6500 });
+                toast.show();
+                toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+            }
+
+            playNotificationBeep();
+        }
+
+        function getCategoryBadge(category) {
+            switch ((category || '').toLowerCase()) {
+                case 'order': return '<span class="badge bg-success">Đơn Hàng</span>';
+                case 'table': return '<span class="badge bg-primary">Bàn Ăn</span>';
+                case 'attendance': return '<span class="badge bg-info text-dark">Chấm Công</span>';
+                case 'auth': return '<span class="badge bg-danger">Tài Khoản</span>';
+                case 'menu': return '<span class="badge bg-warning text-dark">Thực Đơn</span>';
+                case 'customer': return '<span class="badge bg-secondary">Khách Hàng</span>';
+                case 'sync': return '<span class="badge bg-dark">Đồng Bộ</span>';
+                default: return '<span class="badge bg-light text-dark border">Hoạt Động</span>';
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[m]);
+        }
+
+        function renderActivityRow(act) {
+            const statusBadge = act.status === 'ERROR'
+                ? '<span class="badge bg-danger">Thất bại</span>'
+                : '<span class="badge bg-success">Thành công</span>';
+
+            return `
+                <tr>
+                    <td class="small text-muted font-monospace">${escapeHtml(act.formattedTime)}</td>
+                    <td>
+                        <span class="badge bg-light text-dark border me-1">${escapeHtml(act.source)}</span>
+                        <small class="text-muted">${escapeHtml(act.clientIp)}</small>
+                    </td>
+                    <td>${getCategoryBadge(act.category)}</td>
+                    <td><strong class="text-primary">${escapeHtml(act.action)}</strong></td>
+                    <td class="text-wrap">${escapeHtml(act.description)}</td>
+                    <td class="text-center">${statusBadge}</td>
+                </tr>
+            `;
+        }
+
+        function filterActivities(category, btnEl) {
+            currentActivityFilter = category;
+            if (btnEl) {
+                const group = document.getElementById('categoryFilterGroup');
+                if (group) {
+                    group.querySelectorAll('button').forEach(b => {
+                        b.className = 'btn btn-sm btn-outline-secondary';
+                    });
+                    btnEl.className = 'btn btn-sm btn-primary active-filter';
+                }
+            }
+            renderFilteredActivities();
+        }
+
+        function renderFilteredActivities() {
+            const tbody = document.getElementById('appActivitiesTableBody');
+            if (!tbody) return;
+
+            let filtered = allLoadedActivities;
+            if (currentActivityFilter !== 'all') {
+                filtered = allLoadedActivities.filter(a => (a.category || '').toLowerCase() === currentActivityFilter.toLowerCase());
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            <i class="fa-solid fa-inbox fa-2x mb-2 d-block"></i>
+                            Không có hoạt động nào trong danh mục này. Hãy bấm các nút "Bộ Công Cụ Giả Lập" bên trên để thử nghiệm ngay!
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(renderActivityRow).join('');
+        }
+
+        async function loadRecentNotifications() {
+            try {
+                const res = await fetch('/api/notifications/recent?limit=100');
+                if (!res.ok) return;
+                const json = await res.json();
+                if (json.success && Array.isArray(json.data)) {
+                    allLoadedActivities = json.data;
+                    const totalEl = document.getElementById('totalActivitiesCount');
+                    if (totalEl) totalEl.textContent = json.total || json.data.length;
+                    renderFilteredActivities();
+                }
+            } catch (err) {
+                console.warn('Lỗi tải danh sách thông báo:', err);
+            }
+        }
+
+        function initRealtimeNotifications() {
+            if (typeof signalR === 'undefined') {
+                console.warn('SignalR client script chưa sẵn sàng, đang dùng cơ chế Polling.');
+                setInterval(loadRecentNotifications, 10000);
+                return;
+            }
+
+            try {
+                signalrConnection = new signalR.HubConnectionBuilder()
+                    .withUrl("/hubs/notifications")
+                    .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+                    .build();
+
+                signalrConnection.on("ReceiveNotification", function (activity) {
+                    console.log("[SignalR Notification Nhận Được]:", activity);
+
+                    // 1. Hiển thị popup Toast nổi góc phải kèm âm thanh
+                    showLiveToast(activity);
+
+                    // 2. Chèn vào đầu mảng hoạt động
+                    allLoadedActivities.unshift(activity);
+                    renderFilteredActivities();
+
+                    // 3. Tăng bộ đếm thông báo chưa đọc
+                    unreadNotifCount++;
+                    updateNotifBadges();
+
+                    const totalEl = document.getElementById('totalActivitiesCount');
+                    if (totalEl) {
+                        const current = parseInt(totalEl.textContent) || 0;
+                        totalEl.textContent = current + 1;
+                    }
+
+                    // 4. Nếu là đơn hàng, thanh toán hoặc đổi bàn -> tự động cập nhật số liệu giao diện ngay lập tức
+                    const cat = (activity.category || '').toLowerCase();
+                    if (cat === 'order' || cat === 'table' || (activity.action || '').includes('THANH TOÁN')) {
+                        loadOverviewMetrics();
+                        loadTables();
+                        loadOrders();
+                    }
+                });
+
+                signalrConnection.onreconnecting(() => {
+                    const statusText = document.getElementById('signalrStatusText');
+                    const statusBadge = document.getElementById('signalrStatusBadge');
+                    if (statusText) statusText.innerHTML = '🟡 Đang kết nối lại...';
+                    if (statusBadge) { statusBadge.className = 'badge bg-warning text-dark'; statusBadge.textContent = 'RECONNECTING'; }
+                });
+
+                signalrConnection.onreconnected(() => {
+                    const statusText = document.getElementById('signalrStatusText');
+                    const statusBadge = document.getElementById('signalrStatusBadge');
+                    if (statusText) statusText.innerHTML = '🟢 Trực Tuyến';
+                    if (statusBadge) { statusBadge.className = 'badge bg-success'; statusBadge.textContent = 'ONLINE'; }
+                });
+
+                signalrConnection.start()
+                    .then(() => {
+                        console.log("✅ Đã kết nối thành công tới Realtime Notification Hub (/hubs/notifications)");
+                        const statusText = document.getElementById('signalrStatusText');
+                        const statusBadge = document.getElementById('signalrStatusBadge');
+                        if (statusText) statusText.innerHTML = '🟢 Trực Tuyến';
+                        if (statusBadge) { statusBadge.className = 'badge bg-success'; statusBadge.textContent = 'ONLINE'; }
+                    })
+                    .catch(err => {
+                        console.warn("SignalR không thể kết nối trực tiếp, chuyển sang Polling:", err);
+                        const statusText = document.getElementById('signalrStatusText');
+                        const statusBadge = document.getElementById('signalrStatusBadge');
+                        if (statusText) statusText.innerHTML = '🔵 Chế độ Polling';
+                        if (statusBadge) { statusBadge.className = 'badge bg-info text-dark'; statusBadge.textContent = 'POLLING'; }
+                        setInterval(loadRecentNotifications, 8000);
+                    });
+
+            } catch (err) {
+                console.warn('Lỗi khởi tạo SignalR:', err);
+                setInterval(loadRecentNotifications, 8000);
+            }
+        }
+
+        // ============================================================
+        // 11. BỘ CÔNG CỤ GIẢ LẬP THAO TÁC TỪ APP DI ĐỘNG (API SIMULATORS)
+        // ============================================================
+        async function simulateOrderCheckout() {
+            try {
+                const samplePayload = {
+                    tableId: 1,
+                    tableName: "Bàn 101",
+                    customerName: "Nguyễn Văn Khách",
+                    customerTierName: "Bậc Vàng",
+                    employeeName: "Nhân viên Order",
+                    paymentMethod: "Chuyển khoản VietQR",
+                    subtotal: 350000,
+                    discountPercent: 10,
+                    items: [
+                        { menuItemId: 1, menuItemName: "Bò Wagyu Nướng Sốt Tiêu", price: 250000, quantity: 1, note: "Chín vừa" },
+                        { menuItemId: 2, menuItemName: "Trà Đào Cam Sả", price: 50000, quantity: 2, note: "Ít đường" }
+                    ]
+                };
+
+                const res = await fetch('/api/orders/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(samplePayload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    console.log('Simulated order checkout success');
+                } else {
+                    alert('Lỗi giả lập đơn hàng: ' + data.message);
+                }
+            } catch (e) {
+                alert('Không thể thực hiện giả lập gọi món.');
+            }
+        }
+
+        async function simulateAttendance() {
+            try {
+                // Find first employee ID or use 1
+                const res = await fetch('/api/attendance/check-in', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employeeId: 1,
+                        method: "NFC_CARD",
+                        note: "Quẹt thẻ NFC tại cửa vào"
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    console.log('Simulated attendance check-in success');
+                } else {
+                    alert('Lỗi chấm công: ' + data.message);
+                }
+            } catch (e) {
+                alert('Không thể thực hiện giả lập chấm công.');
+            }
+        }
+
+        async function simulateTableStatus() {
+            try {
+                const res = await fetch('/api/tables/1/status', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: "DANG_PHUC_VU" })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    console.log('Simulated table status change success');
+                }
+            } catch (e) {
+                alert('Không thể thực hiện giả lập đổi trạng thái bàn.');
+            }
+        }
+
+        async function simulateSyncData() {
+            try {
+                await fetch('/api/sync/all');
+            } catch (e) {
+                alert('Lỗi đồng bộ dữ liệu.');
+            }
+        }
+
+        async function testAppNotification() {
+            try {
+                const res = await fetch('/api/notifications/test', { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    console.log('Test notification sent successfully');
+                }
+            } catch (e) {
+                alert('Lỗi gửi thông báo thử nghiệm.');
+            }
+        }
+
+        async function clearAllNotifications() {
+            if (!confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử thông báo không?')) return;
+            try {
+                const res = await fetch('/api/notifications/clear', { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    allLoadedActivities = [];
+                    renderFilteredActivities();
+                    const totalEl = document.getElementById('totalActivitiesCount');
+                    if (totalEl) totalEl.textContent = '0';
+                    alert('Đã xóa lịch sử thông báo thành công.');
+                }
+            } catch (e) {
+                alert('Lỗi xóa thông báo.');
+            }
+        }
+
+        function copySnippet(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = el.textContent.trim();
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Đã sao chép cấu hình vào bộ nhớ tạm: \n' + text);
+            }).catch(() => {
+                prompt('Sao chép cấu hình dưới đây:', text);
+            });
+        }
+    </script>
+</body>
+</html>
+

@@ -21,15 +21,20 @@ public class ProductApiController : ControllerBase
     }
 
     /// <summary>
-    /// Lấy toàn bộ danh sách sản phẩm (Yêu cầu đăng nhập: Role User hoặc Admin)
+    /// Lấy danh sách sản phẩm có hỗ trợ lọc, tìm kiếm, khoảng giá và sắp xếp (Yêu cầu đăng nhập: Role User hoặc Admin)
     /// </summary>
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> GetProducts()
+    public async Task<IActionResult> GetProducts(
+        [FromQuery] string? search = null,
+        [FromQuery] int? categoryId = null,
+        [FromQuery] decimal? minPrice = null,
+        [FromQuery] decimal? maxPrice = null,
+        [FromQuery] string? sortBy = null)
     {
         try
         {
-            var productList = await _productRepo.GetProductsAsync();
+            var productList = await _productRepo.GetProductsAsync(search, categoryId, minPrice, maxPrice, sortBy);
             return Ok(productList);
         }
         catch (Exception ex)
@@ -59,6 +64,25 @@ public class ProductApiController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Lỗi xảy ra khi lấy chi tiết sản phẩm {Id}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Lỗi máy chủ nội bộ", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Lấy danh sách sản phẩm thuộc một danh mục cụ thể (Yêu cầu đăng nhập)
+    /// </summary>
+    [HttpGet("by-category/{categoryId:int}")]
+    [Authorize]
+    public async Task<IActionResult> GetProductsByCategory(int categoryId)
+    {
+        try
+        {
+            var products = await _productRepo.GetProductsByCategoryIdAsync(categoryId);
+            return Ok(products);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi lấy sản phẩm theo danh mục {CategoryId}", categoryId);
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Lỗi máy chủ nội bộ", detail = ex.Message });
         }
     }
@@ -106,8 +130,14 @@ public class ProductApiController : ControllerBase
 
         try
         {
+            var existing = await _productRepo.GetProductByIdAsync(id);
+            if (existing is null)
+            {
+                return NotFound(new { message = $"Sản phẩm ID = {id} không tồn tại" });
+            }
+
             await _productRepo.UpdateProductAsync(product);
-            return NoContent();
+            return Ok(new { status = true, message = "Cập nhật sản phẩm thành công", data = product });
         }
         catch (Exception ex)
         {
@@ -132,7 +162,7 @@ public class ProductApiController : ControllerBase
             }
 
             await _productRepo.DeleteProductAsync(id);
-            return NoContent();
+            return Ok(new { status = true, message = $"Đã xóa sản phẩm ID = {id} thành công" });
         }
         catch (Exception ex)
         {
@@ -141,4 +171,3 @@ public class ProductApiController : ControllerBase
         }
     }
 }
-

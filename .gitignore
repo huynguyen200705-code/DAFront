@@ -1,6 +1,12 @@
 ## Build results
 [Bb]in/
 [Oo]bj/
+publish/
+
+## SQLite database files (auto-created on startup)
+*.db
+*.db-shm
+*.db-wal
 
 ## Visual Studio & VS Code cache/user files
 .vs/
@@ -18,3 +24,4 @@ doc_extracted/
 doc_content.txt
 doc_paragraphs.txt
 doc_text.txt
+lesson_content.txt
