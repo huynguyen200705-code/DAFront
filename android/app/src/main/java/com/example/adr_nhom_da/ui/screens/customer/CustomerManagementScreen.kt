@@ -45,6 +45,11 @@ fun CustomerManagementScreen(
         customers = repository.getAllCustomers()
     }
 
+    val syncVersion by repository.syncVersion.collectAsState()
+    LaunchedEffect(syncVersion) {
+        refreshData()
+    }
+
     val filteredList = customers.filter { cust ->
         val matchesSearch = cust.name.contains(searchQuery, ignoreCase = true) || cust.phone.contains(searchQuery)
         val matchesTier = selectedTierFilter == null || cust.tier == selectedTierFilter

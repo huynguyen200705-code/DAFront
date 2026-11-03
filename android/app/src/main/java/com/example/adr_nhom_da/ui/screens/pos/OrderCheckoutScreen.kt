@@ -55,6 +55,13 @@ fun OrderCheckoutScreen(
     }
     var selectedCustomer by remember { mutableStateOf<Customer?>(null) }
     var orderItems by remember { mutableStateOf(mutableListOf<OrderItem>()) }
+
+    val syncVersion by repository.syncVersion.collectAsState()
+    LaunchedEffect(syncVersion, selectedTable) {
+        selectedTable?.let { table ->
+            orderItems = repository.getActiveOrderForTable(table.id).toMutableList()
+        }
+    }
     var paymentMethod by remember { mutableStateOf("VietQR") }
     var cashGivenInput by remember { mutableStateOf("") }
 

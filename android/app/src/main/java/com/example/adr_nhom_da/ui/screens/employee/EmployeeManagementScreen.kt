@@ -97,6 +97,11 @@ fun EmployeeManagementScreen(
         attendanceRecords = repository.getAllAttendanceRecords()
     }
 
+    val syncVersion by repository.syncVersion.collectAsState()
+    LaunchedEffect(syncVersion) {
+        refreshData()
+    }
+
     fun executeWithFaceId(title: String, desc: String, action: () -> Unit) {
         if (isFaceIdEnabled) {
             faceActionTitle = title

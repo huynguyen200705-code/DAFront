@@ -63,6 +63,11 @@ fun MenuManagementScreen(
         menuList = repository.getAllMenuItems()
     }
 
+    val syncVersion by repository.syncVersion.collectAsState()
+    LaunchedEffect(syncVersion) {
+        refreshData()
+    }
+
     val availableCount = remember(menuList) { menuList.count { it.isAvailable } }
     val outOfStockCount = remember(menuList) { menuList.count { !it.isAvailable } }
     val averagePrice = remember(menuList) {

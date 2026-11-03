@@ -51,8 +51,15 @@ fun AnalyticsScreen(
 
     // Fetch fresh data
     var allOrders by remember { mutableStateOf(repository.getAllCompletedOrders()) }
-    val customers = remember { repository.getAllCustomers() }
-    val employees = remember { repository.getAllEmployees() }
+    var customers by remember { mutableStateOf(repository.getAllCustomers()) }
+    var employees by remember { mutableStateOf(repository.getAllEmployees()) }
+
+    val syncVersion by repository.syncVersion.collectAsState()
+    LaunchedEffect(syncVersion) {
+        allOrders = repository.getAllCompletedOrders()
+        customers = repository.getAllCustomers()
+        employees = repository.getAllEmployees()
+    }
 
     // Filter orders by period
     val now = System.currentTimeMillis()

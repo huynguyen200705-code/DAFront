@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.adr_nhom_da.data.model.User
 import com.example.adr_nhom_da.data.model.UserRole
+import com.example.adr_nhom_da.data.remote.RealtimeSyncManager
 import com.example.adr_nhom_da.data.repository.RestaurantRepository
 import com.example.adr_nhom_da.ui.screens.analytics.AnalyticsScreen
 import com.example.adr_nhom_da.ui.screens.customer.CustomerManagementScreen
@@ -61,8 +62,28 @@ fun MainContainerScreen(
 
     var selectedTab by remember { mutableStateOf(tabs.first()) }
     var selectedTableIdForOrder by remember { mutableStateOf<Long?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Listen for Realtime Sync Notifications from other devices
+    LaunchedEffect(Unit) {
+        RealtimeSyncManager.syncNotification.collect { notificationText ->
+            snackbarHostState.showSnackbar(
+                message = notificationText,
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
 
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    containerColor = Color(0xFF1E1E2C),
+                    contentColor = Color.White,
+                    snackbarData = data
+                )
+            }
+        },
         bottomBar = {
             NavigationBar(
                 containerColor = Color.White,

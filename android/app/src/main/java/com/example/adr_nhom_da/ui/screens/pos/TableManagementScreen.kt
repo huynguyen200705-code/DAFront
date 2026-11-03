@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.adr_nhom_da.data.model.RestaurantTable
 import com.example.adr_nhom_da.data.model.TableStatus
+import com.example.adr_nhom_da.data.remote.RealtimeSyncManager
 import com.example.adr_nhom_da.data.repository.RestaurantRepository
 import com.example.adr_nhom_da.ui.components.TableStatusBadge
 import com.example.adr_nhom_da.ui.components.formatVnd
@@ -53,9 +54,16 @@ fun TableManagementScreen(
     var showQrScannerDialog by remember { mutableStateOf(false) }
     var selectedTableForQrStandee by remember { mutableStateOf<RestaurantTable?>(null) }
     var selectedTableForCustomerOrder by remember { mutableStateOf<RestaurantTable?>(null) }
+    var showSyncStatusDialog by remember { mutableStateOf(false) }
+    val isCloudConnected by RealtimeSyncManager.isCloudConnected.collectAsState()
 
     fun refreshData() {
         tables = repository.getAllTables()
+    }
+
+    val syncVersion by repository.syncVersion.collectAsState()
+    LaunchedEffect(syncVersion) {
+        refreshData()
     }
 
     val filteredTables = if (selectedFloor == "Tất cả") tables else tables.filter { it.floor == selectedFloor }
@@ -69,9 +77,21 @@ fun TableManagementScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Sơ Đồ Bàn Ăn Nhà Hàng", fontWeight = FontWeight.Black, fontSize = 18.sp)
-                        Text("${tables.size} bàn • Quản lý & Gọi món qua mã QR", fontSize = 11.sp, color = Color.Gray)
+                    Column(modifier = Modifier.clickable { showSyncStatusDialog = true }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Sơ Đồ Bàn Ăn Nhà Hàng", fontWeight = FontWeight.Black, fontSize = 17.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(if (isCloudConnected) Color(0xFF00E676) else Color(0xFFFFB74D), CircleShape)
+                            )
+                        }
+                        Text(
+                            text = if (isCloudConnected) "${tables.size} bàn • 🟢 Đã nối Cloud Realtime" else "${tables.size} bàn • 🟡 Đang nối Cloud...",
+                            fontSize = 11.sp,
+                            color = if (isCloudConnected) Color(0xFF2E7D32) else Color(0xFFE65100)
+                        )
                     }
                 },
                 actions = {
@@ -462,6 +482,56 @@ fun TableManagementScreen(
             onDismiss = {
                 selectedTableForCustomerOrder = null
                 refreshData()
+            }
+        )
+    }
+
+    if (showSyncStatusDialog) {
+        AlertDialog(
+            onDismissRequest = { showSyncStatusDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = if (isCloudConnected) Color(0xFF2E7D32) else Color(0xFFE65100),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Đồng Bộ Cloud Real-time", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = if (isCloudConnected) "🟢 Trạng thái: ĐÃ KẾT NỐI CLOUD REAL-TIME" else "🟡 Trạng thái: Đang kết nối Cloud Broker...",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isCloudConnected) Color(0xFF2E7D32) else Color(0xFFE65100)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "• Kênh chung: ${RealtimeSyncManager.SYNC_TOPIC}\n• Thiết bị: ${RealtimeSyncManager.deviceName}\n• Mã máy: #${RealtimeSyncManager.deviceId}\n• Mạng hỗ trợ: Cả Wi-Fi và 4G/5G toàn cầu",
+                        fontSize = 11.5.sp,
+                        color = Color.DarkGray
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Button(
+                        onClick = {
+                            RealtimeSyncManager.sendPing()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryRed),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("⚡ Bấm gửi tín hiệu kiểm tra (Ping)")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSyncStatusDialog = false }) {
+                    Text("Đóng")
+                }
             }
         )
     }
