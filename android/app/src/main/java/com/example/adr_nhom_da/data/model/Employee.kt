@@ -34,4 +34,7 @@ data class Employee(
         val total = baseAmount + bonus - penalty
         return if (total < 0) 0.0 else total
     }
+
+    fun getNfcTagCode(): String = "NFC-EMP-${id.toString().padStart(4, '0')}"
+    fun getQrCodeContent(): String = "REST-EMP-${id}-${phone.takeLast(4)}"
 }

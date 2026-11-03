@@ -1,23 +1,25 @@
 package com.example.adr_nhom_da.ui.screens.customer
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
 import com.example.adr_nhom_da.data.model.Customer
 import com.example.adr_nhom_da.data.model.CustomerTier
 import com.example.adr_nhom_da.data.repository.RestaurantRepository
@@ -49,10 +51,17 @@ fun CustomerManagementScreen(
         matchesSearch && matchesTier
     }
 
+    val vipCount = customers.count { it.tier == CustomerTier.VANG || it.tier == CustomerTier.BACH_KIM || it.tier == CustomerTier.KIM_CUONG }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Quản Lý 5 Bậc Khách Hàng", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text("Quản Lý 5 Bậc Khách Hàng", fontWeight = FontWeight.Black, fontSize = 18.sp)
+                        Text("${customers.size} thành viên • $vipCount khách VIP", fontSize = 11.sp, color = Color.Gray)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -62,7 +71,8 @@ fun CustomerManagementScreen(
                     customerToEdit = null
                     showAddEditDialog = true
                 },
-                containerColor = PrimaryRed
+                containerColor = PrimaryRed,
+                elevation = FloatingActionButtonDefaults.elevation(6.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Thêm khách hàng", tint = Color.White)
             }
@@ -72,41 +82,79 @@ fun CustomerManagementScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                label = { Text("Tìm kiếm theo tên hoặc SĐT...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                placeholder = { Text("Tìm theo tên hoặc số điện thoại...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                trailingIcon = {
+                    if (searchQuery.isNotBlank()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Xóa")
+                        }
+                    }
+                },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                shape = RoundedCornerShape(12.dp)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 5 Tier Filter Chips
-            ScrollableTabRow(
-                selectedTabIndex = if (selectedTierFilter == null) 0 else CustomerTier.values().indexOf(selectedTierFilter) + 1,
-                edgePadding = 0.dp,
+            // Modern Tier Filter Chips
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Tab(
-                    selected = selectedTierFilter == null,
-                    onClick = { selectedTierFilter = null },
-                    text = { Text("Tất cả (${customers.size})") }
-                )
-                CustomerTier.values().forEach { tier ->
-                    Tab(
-                        selected = selectedTierFilter == tier,
+                item {
+                    val isAll = selectedTierFilter == null
+                    FilterChip(
+                        selected = isAll,
+                        onClick = { selectedTierFilter = null },
+                        label = {
+                            Text(
+                                text = "Tất cả (${customers.size})",
+                                fontWeight = if (isAll) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 12.sp
+                            )
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryRed,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White
+                        )
+                    )
+                }
+
+                items(CustomerTier.values()) { tier ->
+                    val isSelected = selectedTierFilter == tier
+                    val count = customers.count { it.tier == tier }
+
+                    FilterChip(
+                        selected = isSelected,
                         onClick = { selectedTierFilter = tier },
-                        text = { Text("${tier.displayName} (-${tier.discountPercent.toInt()}%)") }
+                        label = {
+                            Text(
+                                text = "${tier.displayName} ($count)",
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 12.sp
+                            )
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryRed,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White
+                        )
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Customer List
             LazyColumn(
@@ -133,12 +181,12 @@ fun CustomerManagementScreen(
     if (showAddEditDialog) {
         var name by remember { mutableStateOf(customerToEdit?.name ?: "") }
         var phone by remember { mutableStateOf(customerToEdit?.phone ?: "") }
-        var email by remember { mutableStateOf(customerToEdit?.email ?: "") }
-        var spentText by remember { mutableStateOf(customerToEdit?.totalSpent?.toInt()?.toString() ?: "0") }
+        var totalSpentText by remember { mutableStateOf(customerToEdit?.totalSpent?.toInt()?.toString() ?: "0") }
+        var pointsText by remember { mutableStateOf(customerToEdit?.loyaltyPoints?.toString() ?: "0") }
 
         AlertDialog(
             onDismissRequest = { showAddEditDialog = false },
-            title = { Text(if (customerToEdit == null) "Thêm Khách Hàng Mới" else "Cập Nhật Khách Hàng") },
+            title = { Text(if (customerToEdit == null) "Thêm Khách Hàng Mới" else "Cập Nhật Khách Hàng", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     OutlinedTextField(
@@ -147,25 +195,25 @@ fun CustomerManagementScreen(
                         label = { Text("Họ và tên") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
                         value = phone,
                         onValueChange = { phone = it },
                         label = { Text("Số điện thoại") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email") },
+                        value = totalSpentText,
+                        onValueChange = { totalSpentText = it },
+                        label = { Text("Tổng chi tiêu tích lũy (VNĐ)") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
-                        value = spentText,
-                        onValueChange = { spentText = it },
-                        label = { Text("Tổng chi tiêu tích lũy (VNĐ)") },
+                        value = pointsText,
+                        onValueChange = { pointsText = it },
+                        label = { Text("Điểm tích lũy (Points)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -173,29 +221,22 @@ fun CustomerManagementScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (name.isNotBlank() && phone.isNotBlank()) {
-                            val spentVal = spentText.toDoubleOrNull() ?: 0.0
-                            val pointsVal = (spentVal / 100000.0).toInt()
+                        if (name.isNotBlank()) {
+                            val spent = totalSpentText.toDoubleOrNull() ?: 0.0
+                            val points = pointsText.toIntOrNull() ?: 0
+
+                            val newCust = Customer(
+                                id = customerToEdit?.id ?: 0,
+                                name = name,
+                                phone = phone,
+                                email = customerToEdit?.email ?: "",
+                                totalSpent = spent,
+                                loyaltyPoints = points
+                            )
                             if (customerToEdit == null) {
-                                repository.addCustomer(
-                                    Customer(
-                                        name = name,
-                                        phone = phone,
-                                        email = email,
-                                        totalSpent = spentVal,
-                                        loyaltyPoints = pointsVal
-                                    )
-                                )
+                                repository.addCustomer(newCust)
                             } else {
-                                repository.updateCustomer(
-                                    customerToEdit!!.copy(
-                                        name = name,
-                                        phone = phone,
-                                        email = email,
-                                        totalSpent = spentVal,
-                                        loyaltyPoints = pointsVal
-                                    )
-                                )
+                                repository.updateCustomer(newCust)
                             }
                             refreshData()
                             showAddEditDialog = false
@@ -215,7 +256,7 @@ fun CustomerManagementScreen(
     // Confirm Delete Dialog
     customerToDelete?.let { cust ->
         ConfirmDeleteDialog(
-            message = "Bạn có chắc chắn muốn xóa khách hàng '${cust.name}' không?",
+            message = "Bạn có chắc chắn muốn xóa khách hàng '${cust.name}'?",
             onConfirm = {
                 repository.deleteCustomer(cust.id)
                 refreshData()
@@ -238,56 +279,81 @@ fun CustomerCard(
     } else 1.0f
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(2.dp),
-        shape = RoundedCornerShape(12.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(14.dp)),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Avatar circle
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(PrimaryRed.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = customer.name.take(1).uppercase(),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 18.sp,
+                        color = PrimaryRed
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(customer.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(customer.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF1E1E2C))
                         Spacer(modifier = Modifier.width(8.dp))
                         CustomerTierBadge(tier = customer.tier)
                     }
-                    Text("SĐT: ${customer.phone} • Points: ${customer.loyaltyPoints} điểm", fontSize = 12.sp, color = Color.Gray)
-                    Text("Tổng chi tiêu: ${formatVnd(customer.totalSpent)}", fontWeight = FontWeight.Medium, color = PrimaryRed)
+                    Text("SĐT: ${customer.phone} • Tích lũy: ${customer.loyaltyPoints} điểm", fontSize = 11.sp, color = Color.Gray)
+                    Text("Chi tiêu: ${formatVnd(customer.totalSpent)}", fontWeight = FontWeight.Bold, color = PrimaryRed, fontSize = 13.sp)
                 }
 
                 Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, contentDescription = "Sửa", tint = Color.Gray)
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Sửa", tint = Color.Gray, modifier = Modifier.size(18.dp))
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Xóa", tint = PrimaryRed)
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Xóa", tint = PrimaryRed, modifier = Modifier.size(18.dp))
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             // Tier Progress Bar
             if (nextTier != null) {
-                Column {
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFF9F9FB), RoundedCornerShape(8.dp))
+                        .padding(8.dp)
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Thăng hạng ${nextTier.displayName}:", fontSize = 11.sp, color = Color.Gray)
-                        Text("${formatVnd(customer.totalSpent)} / ${formatVnd(nextTier.minSpend)}", fontSize = 11.sp, color = Color.Gray)
+                        Text("Tiến độ thăng hạng ${nextTier.displayName}:", fontSize = 11.sp, color = Color.Gray)
+                        Text("${formatVnd(customer.totalSpent)} / ${formatVnd(nextTier.minSpend)}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.DarkGray)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     LinearProgressIndicator(
-                        progress = progress,
+                        progress = { progress },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp),
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
                         color = PrimaryRed,
-                        trackColor = Color.LightGray
+                        trackColor = Color(0xFFE0E0E0)
                     )
                 }
             }

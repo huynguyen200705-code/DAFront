@@ -21,6 +21,7 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         const val TABLE_TABLES = "restaurant_tables"
         const val TABLE_ORDERS = "orders"
         const val TABLE_ORDER_ITEMS = "order_items"
+        const val TABLE_ATTENDANCE = "attendance_records"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -122,11 +123,93 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             )
         """.trimIndent())
 
+        // 8. Create Attendance Records
+        createAttendanceTableIfNotExists(db)
+
         // Seed initial data
         seedInitialData(db)
+        seedSampleOrdersIfEmpty(db)
+    }
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        createAttendanceTableIfNotExists(db)
+        seedSampleOrdersIfEmpty(db)
+    }
+
+    private fun createAttendanceTableIfNotExists(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS $TABLE_ATTENDANCE (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER NOT NULL,
+                employee_name TEXT NOT NULL,
+                type TEXT NOT NULL,
+                method TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                duration_hours REAL DEFAULT 0.0,
+                note TEXT
+            )
+        """.trimIndent())
+    }
+
+    private fun seedSampleOrdersIfEmpty(db: SQLiteDatabase) {
+        val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_ORDERS", null)
+        var count = 0
+        if (cursor.moveToFirst()) {
+            count = cursor.getInt(0)
+        }
+        cursor.close()
+        if (count == 0) {
+            val now = System.currentTimeMillis()
+            val day = 86400000L
+
+            // Sample Order 1: Table 101, Customer Nguyen Van A (Silver), VietQR
+            db.execSQL("""
+                INSERT INTO $TABLE_ORDERS (table_id, table_name, customer_id, customer_name, customer_tier_name, employee_id, employee_name, subtotal, discount_percent, payment_method, status, timestamp)
+                VALUES (1, 'Bàn 101', 1, 'Nguyen Van A', 'Bậc Đồng', 2, 'Tran Thi Hoa', 420000.0, 0.0, 'VietQR', 'COMPLETED', ${now - 3600000L * 2})
+            """.trimIndent())
+            val orderId1 = 1L
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId1, 3, 'Lẩu thái hải sản', 290000.0, 1, 'Ít cay')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId1, 1, 'Gỏi ngó sen tôm thịt', 85000.0, 1, '')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId1, 6, 'Trà đào cam sả', 45000.0, 1, 'Ít đá')")
+
+            // Sample Order 2: Table 102, Customer Tran Thi B (Gold), VietQR
+            db.execSQL("""
+                INSERT INTO $TABLE_ORDERS (table_id, table_name, customer_id, customer_name, customer_tier_name, employee_id, employee_name, subtotal, discount_percent, payment_method, status, timestamp)
+                VALUES (2, 'Bàn 102', 2, 'Tran Thi B', 'Bậc Bạc', 2, 'Tran Thi Hoa', 850000.0, 5.0, 'VietQR', 'COMPLETED', ${now - 3600000L * 5})
+            """.trimIndent())
+            val orderId2 = 2L
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId2, 4, 'Bò lúc lắc hạt điều', 165000.0, 2, 'Tái vừa')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId2, 3, 'Lẩu thái hải sản', 290000.0, 1, '')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId2, 5, 'Cơm chiên hải sản', 110000.0, 1, '')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId2, 6, 'Trà đào cam sả', 45000.0, 2, '')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId2, 8, 'Chè khúc bạch', 40000.0, 2, '')")
+
+            // Sample Order 3: VIP 1, Hoang Van E (Diamond), VietQR
+            db.execSQL("""
+                INSERT INTO $TABLE_ORDERS (table_id, table_name, customer_id, customer_name, customer_tier_name, employee_id, employee_name, subtotal, discount_percent, payment_method, status, timestamp)
+                VALUES (6, 'Phòng VIP 1', 5, 'Hoang Van E', 'Bậc Kim Cương', 1, 'Nguyen Van Binh', 1850000.0, 20.0, 'VietQR', 'COMPLETED', ${now - day})
+            """.trimIndent())
+            val orderId3 = 3L
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId3, 3, 'Lẩu thái hải sản', 290000.0, 2, 'VIP phục vụ')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId3, 4, 'Bò lúc lắc hạt điều', 165000.0, 3, '')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId3, 5, 'Cơm chiên hải sản', 110000.0, 2, '')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId3, 2, 'Chả giò hải sản', 75000.0, 2, '')")
+
+            // Sample Order 4: Table 103, Le Van C (Gold), Cash
+            db.execSQL("""
+                INSERT INTO $TABLE_ORDERS (table_id, table_name, customer_id, customer_name, customer_tier_name, employee_id, employee_name, subtotal, discount_percent, payment_method, status, timestamp)
+                VALUES (3, 'Bàn 103', 3, 'Le Van C', 'Bậc Vàng', 1, 'Nguyen Van Binh', 640000.0, 10.0, 'Tiền mặt', 'COMPLETED', ${now - day * 2})
+            """.trimIndent())
+            val orderId4 = 4L
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId4, 3, 'Lẩu thái hải sản', 290000.0, 1, '')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId4, 4, 'Bò lúc lắc hạt điều', 165000.0, 1, '')")
+            db.execSQL("INSERT INTO $TABLE_ORDER_ITEMS (order_id, menu_item_id, menu_item_name, price, quantity, note) VALUES ($orderId4, 6, 'Trà đào cam sả', 45000.0, 2, '')")
+        }
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_ATTENDANCE")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_ORDER_ITEMS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_ORDERS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_TABLES")
@@ -173,5 +256,13 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         db.execSQL("INSERT INTO $TABLE_TABLES (name, floor, seats, status) VALUES ('Bàn 202', 'Tầng 2', 8, 'DANG_PHUC_VU')")
         db.execSQL("INSERT INTO $TABLE_TABLES (name, floor, seats, status) VALUES ('Phòng VIP 1', 'Phòng VIP', 12, 'TRONG')")
         db.execSQL("INSERT INTO $TABLE_TABLES (name, floor, seats, status) VALUES ('Phòng VIP 2', 'Phòng VIP', 10, 'TRONG')")
+
+        // Seed Initial Attendance
+        val now = System.currentTimeMillis()
+        val oneHourAgo = now - 3600000L * 4
+        val twoHoursAgo = now - 3600000L * 5
+        db.execSQL("INSERT INTO $TABLE_ATTENDANCE (employee_id, employee_name, type, method, timestamp, duration_hours, note) VALUES (1, 'Nguyen Van Binh', 'CHECK_IN', 'NFC', $twoHoursAgo, 0.0, 'Chấm công thẻ NFC ca sáng')")
+        db.execSQL("INSERT INTO $TABLE_ATTENDANCE (employee_id, employee_name, type, method, timestamp, duration_hours, note) VALUES (2, 'Tran Thi Hoa', 'CHECK_IN', 'QR_CODE', $oneHourAgo, 0.0, 'Quét mã QR nhân viên')")
+        db.execSQL("INSERT INTO $TABLE_ATTENDANCE (employee_id, employee_name, type, method, timestamp, duration_hours, note) VALUES (3, 'Le Hoang Nam', 'CHECK_IN', 'NFC', $twoHoursAgo, 0.0, 'Chạm NFC bếp trưởng')")
     }
 }

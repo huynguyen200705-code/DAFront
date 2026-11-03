@@ -6,7 +6,10 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.adr_nhom_da.data.model.User
 import com.example.adr_nhom_da.data.model.UserRole
 import com.example.adr_nhom_da.data.repository.RestaurantRepository
@@ -61,13 +64,17 @@ fun MainContainerScreen(
 
     Scaffold(
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+            NavigationBar(
+                containerColor = Color.White,
+                tonalElevation = 8.dp
+            ) {
                 tabs.forEach { tab ->
                     NavigationBarItem(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
                         icon = { Icon(tab.icon, contentDescription = tab.title) },
-                        label = { Text(tab.title) },
+                        label = { Text(tab.title, fontSize = 10.sp, maxLines = 1) },
+                        alwaysShowLabel = false,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = PrimaryRed,
                             selectedTextColor = PrimaryRed,

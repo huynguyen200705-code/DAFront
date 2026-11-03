@@ -37,4 +37,6 @@ data class Order(
 
     val finalTotal: Double
         get() = subtotal - discountAmount
+
+    fun getQrCodeContent(): String = "REST-ORDER-${id.toString().padStart(5, '0')}"
 }

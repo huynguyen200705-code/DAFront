@@ -360,6 +360,7 @@ class RestaurantRepository(context: Context) {
         if (cursor.moveToFirst()) {
             do {
                 val orderId = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
+                val items = getOrderItems(orderId)
                 list.add(
                     Order(
                         id = orderId,
@@ -370,6 +371,7 @@ class RestaurantRepository(context: Context) {
                         customerTierName = cursor.getString(cursor.getColumnIndexOrThrow("customer_tier_name")) ?: "Bậc Đồng",
                         employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
                         employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")) ?: "Nhân viên",
+                        items = items,
                         subtotal = cursor.getDouble(cursor.getColumnIndexOrThrow("subtotal")),
                         discountPercent = cursor.getDouble(cursor.getColumnIndexOrThrow("discount_percent")),
                         paymentMethod = cursor.getString(cursor.getColumnIndexOrThrow("payment_method")) ?: "Tiền mặt",
@@ -381,5 +383,182 @@ class RestaurantRepository(context: Context) {
         }
         cursor.close()
         return list
+    }
+
+    fun getOrderItems(orderId: Long): List<OrderItem> {
+        val list = mutableListOf<OrderItem>()
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM ${RestaurantDbHelper.TABLE_ORDER_ITEMS} WHERE order_id=?",
+            arrayOf(orderId.toString())
+        )
+        if (cursor.moveToFirst()) {
+            do {
+                list.add(
+                    OrderItem(
+                        menuItemId = cursor.getLong(cursor.getColumnIndexOrThrow("menu_item_id")),
+                        menuItemName = cursor.getString(cursor.getColumnIndexOrThrow("menu_item_name")),
+                        price = cursor.getDouble(cursor.getColumnIndexOrThrow("price")),
+                        quantity = cursor.getInt(cursor.getColumnIndexOrThrow("quantity")),
+                        note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+                    )
+                )
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        return list
+    }
+
+    fun getEmployeeById(id: Long): Employee? {
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM ${RestaurantDbHelper.TABLE_EMPLOYEES} WHERE id=?",
+            arrayOf(id.toString())
+        )
+        var emp: Employee? = null
+        if (cursor.moveToFirst()) {
+            emp = Employee(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")),
+                position = cursor.getString(cursor.getColumnIndexOrThrow("position")),
+                tier = EmployeeTier.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("tier"))),
+                contractType = ContractType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("contract_type"))),
+                hourlyRate = cursor.getDouble(cursor.getColumnIndexOrThrow("hourly_rate")),
+                monthlySalary = cursor.getDouble(cursor.getColumnIndexOrThrow("monthly_salary")),
+                workedHours = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_hours")),
+                workedDays = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_days")),
+                bonus = cursor.getDouble(cursor.getColumnIndexOrThrow("bonus")),
+                penalty = cursor.getDouble(cursor.getColumnIndexOrThrow("penalty"))
+            )
+        }
+        cursor.close()
+        return emp
+    }
+
+    // --- ATTENDANCE (CHẤM CÔNG NFC & QR) ---
+    fun getAllAttendanceRecords(): List<AttendanceRecord> {
+        val list = mutableListOf<AttendanceRecord>()
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} ORDER BY id DESC",
+            null
+        )
+        if (cursor.moveToFirst()) {
+            do {
+                list.add(
+                    AttendanceRecord(
+                        id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                        employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
+                        employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
+                        type = AttendanceType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
+                        method = AttendanceMethod.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
+                        timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
+                        durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
+                        note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+                    )
+                )
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        return list
+    }
+
+    fun getLastAttendanceForEmployee(employeeId: Long): AttendanceRecord? {
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_id=? ORDER BY id DESC LIMIT 1",
+            arrayOf(employeeId.toString())
+        )
+        var record: AttendanceRecord? = null
+        if (cursor.moveToFirst()) {
+            record = AttendanceRecord(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
+                employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
+                type = AttendanceType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
+                method = AttendanceMethod.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
+                timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
+                durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
+                note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+            )
+        }
+        cursor.close()
+        return record
+    }
+
+    fun getLastCheckInForEmployee(employeeId: Long): AttendanceRecord? {
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_id=? AND type='CHECK_IN' ORDER BY id DESC LIMIT 1",
+            arrayOf(employeeId.toString())
+        )
+        var record: AttendanceRecord? = null
+        if (cursor.moveToFirst()) {
+            record = AttendanceRecord(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
+                employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
+                type = AttendanceType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
+                method = AttendanceMethod.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
+                timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
+                durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
+                note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+            )
+        }
+        cursor.close()
+        return record
+    }
+
+    fun recordAttendance(
+        employeeId: Long,
+        type: AttendanceType,
+        method: AttendanceMethod,
+        note: String = ""
+    ): AttendanceRecord? {
+        val emp = getEmployeeById(employeeId) ?: return null
+        val now = System.currentTimeMillis()
+        var durationHours = 0.0
+
+        if (type == AttendanceType.CHECK_OUT) {
+            val lastCheckIn = getLastCheckInForEmployee(employeeId)
+            if (lastCheckIn != null && lastCheckIn.timestamp < now) {
+                val diffMillis = now - lastCheckIn.timestamp
+                durationHours = (diffMillis / (1000.0 * 60.0 * 60.0)).coerceAtLeast(0.1)
+                durationHours = Math.round(durationHours * 10.0) / 10.0
+
+                val updatedEmp = if (emp.contractType == ContractType.HOURLY) {
+                    emp.copy(workedHours = emp.workedHours + durationHours)
+                } else {
+                    val addDay = if (durationHours >= 4.0) 1.0 else 0.5
+                    emp.copy(workedDays = (emp.workedDays + addDay).coerceAtMost(26.0))
+                }
+                updateEmployee(updatedEmp)
+            }
+        }
+
+        val db = dbHelper.writableDatabase
+        val cv = ContentValues().apply {
+            put("employee_id", employeeId)
+            put("employee_name", emp.name)
+            put("type", type.name)
+            put("method", method.name)
+            put("timestamp", now)
+            put("duration_hours", durationHours)
+            put("note", note)
+        }
+        val id = db.insert(RestaurantDbHelper.TABLE_ATTENDANCE, null, cv)
+        if (id == -1L) return null
+
+        return AttendanceRecord(
+            id = id,
+            employeeId = employeeId,
+            employeeName = emp.name,
+            type = type,
+            method = method,
+            timestamp = now,
+            durationHours = durationHours,
+            note = note
+        )
     }
 }

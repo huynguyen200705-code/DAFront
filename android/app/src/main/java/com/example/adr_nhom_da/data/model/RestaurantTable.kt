@@ -13,4 +13,7 @@ data class RestaurantTable(
     val seats: Int = 4,
     val status: TableStatus = TableStatus.TRONG,
     val currentOrderId: Long? = null
-)
+) {
+    fun getQrCodeContent(): String = "REST-TABLE-${id}-${name.replace(" ", "")}"
+    fun getOrderUrl(): String = "https://goldenspoon.vn/order?tableId=${id}"
+}
