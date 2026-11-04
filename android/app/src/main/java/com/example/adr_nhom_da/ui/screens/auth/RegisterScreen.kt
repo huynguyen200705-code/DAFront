@@ -43,6 +43,24 @@ fun RegisterScreen(
     var isPasswordVisible by remember { mutableStateOf(false) }
     var selectedRole by remember { mutableStateOf(UserRole.USER) }
     var message by remember { mutableStateOf<String?>(null) }
+    var showFaceIdEnrollment by remember { mutableStateOf(false) }
+    var newlyRegisteredUser by remember { mutableStateOf<User?>(null) }
+
+    if (showFaceIdEnrollment && newlyRegisteredUser != null) {
+        com.example.adr_nhom_da.ui.components.FaceIdEnrollmentDialog(
+            username = newlyRegisteredUser!!.username,
+            fullName = newlyRegisteredUser!!.fullName,
+            repository = repository,
+            onEnrolled = {
+                showFaceIdEnrollment = false
+                onRegisterSuccess()
+            },
+            onDismiss = {
+                showFaceIdEnrollment = false
+                onRegisterSuccess()
+            }
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -313,17 +331,17 @@ fun RegisterScreen(
                                 message = "Vui lòng điền đầy đủ các thông tin!"
                                 return@Button
                             }
-                            val success = repository.register(
-                                User(
-                                    fullName = fullName,
-                                    phone = phone,
-                                    username = username,
-                                    password = password,
-                                    role = selectedRole
-                                )
+                            val newUser = User(
+                                fullName = fullName,
+                                phone = phone,
+                                username = username,
+                                password = password,
+                                role = selectedRole
                             )
+                            val success = repository.register(newUser)
                             if (success) {
-                                onRegisterSuccess()
+                                newlyRegisteredUser = newUser
+                                showFaceIdEnrollment = true
                             } else {
                                 message = "Tên đăng nhập đã tồn tại trong hệ thống!"
                             }

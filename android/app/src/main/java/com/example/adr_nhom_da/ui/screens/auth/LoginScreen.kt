@@ -39,6 +39,22 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showFaceIdLoginDialog by remember { mutableStateOf(false) }
+    var faceIdTargetUser by remember { mutableStateOf<String?>(null) }
+
+    if (showFaceIdLoginDialog) {
+        com.example.adr_nhom_da.ui.components.FaceIdLoginDialog(
+            repository = repository,
+            targetUsername = faceIdTargetUser,
+            onLoginSuccess = { user ->
+                showFaceIdLoginDialog = false
+                onLoginSuccess(user)
+            },
+            onDismiss = {
+                showFaceIdLoginDialog = false
+            }
+        )
+    }
 
     fun performLogin(u: String, p: String) {
         val user = repository.login(u, p)
@@ -213,6 +229,39 @@ fun LoginScreen(
                         elevation = ButtonDefaults.buttonElevation(4.dp)
                     ) {
                         Text("VÀO HỆ THỐNG", fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Face ID Login Button
+                    OutlinedButton(
+                        onClick = {
+                            faceIdTargetUser = if (username.isNotBlank()) username.trim() else null
+                            showFaceIdLoginDialog = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.5.dp,
+                            Brush.horizontalGradient(listOf(PrimaryRed, SecondaryGold))
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2D0C10))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Face,
+                            contentDescription = "Face ID",
+                            tint = PrimaryRed,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (username.isNotBlank()) "QUÉT FACE ID CHO @${username.trim()}" else "ĐĂNG NHẬP BẰNG FACE ID",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2D0C10)
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))

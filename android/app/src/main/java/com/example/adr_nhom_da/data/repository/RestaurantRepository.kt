@@ -58,6 +58,7 @@ class RestaurantRepository(context: Context) {
                 put("role", user.role.name)
                 put("is_logged_in", 1)
                 put("last_login", System.currentTimeMillis())
+                put("face_id_data", user.faceIdData)
             }
             db.insertWithOnConflict(RestaurantDbHelper.TABLE_SESSION, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
         } catch (e: Exception) {
@@ -74,13 +75,15 @@ class RestaurantRepository(context: Context) {
             )
             var user: User? = null
             if (cursor.moveToFirst()) {
+                val faceIdCol = cursor.getColumnIndex("face_id_data")
                 user = User(
                     id = cursor.getLong(cursor.getColumnIndexOrThrow("user_id")),
                     username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
                     password = "",
                     fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
                     phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                    role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role")))
+                    role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                    faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
                 )
             }
             cursor.close()
@@ -99,7 +102,7 @@ class RestaurantRepository(context: Context) {
         }
     }
 
-    // --- AUTHENTICATION ---
+    // --- AUTHENTICATION & FACE ID ---
     fun login(usernameInput: String, passwordInput: String): User? {
         val db = dbHelper.readableDatabase
         val cursor = db.rawQuery(
@@ -108,13 +111,15 @@ class RestaurantRepository(context: Context) {
         )
         var user: User? = null
         if (cursor.moveToFirst()) {
+            val faceIdCol = cursor.getColumnIndex("face_id_data")
             user = User(
                 id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
                 username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
                 password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
                 fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
                 phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role")))
+                role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
             )
             saveLoggedInUser(user)
         }
@@ -127,13 +132,35 @@ class RestaurantRepository(context: Context) {
         val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS} WHERE id=?", arrayOf(id.toString()))
         var user: User? = null
         if (cursor.moveToFirst()) {
+            val faceIdCol = cursor.getColumnIndex("face_id_data")
             user = User(
                 id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
                 username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
                 password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
                 fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
                 phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role")))
+                role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
+            )
+        }
+        cursor.close()
+        return user
+    }
+
+    fun getUserByUsername(username: String): User? {
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS} WHERE username=?", arrayOf(username))
+        var user: User? = null
+        if (cursor.moveToFirst()) {
+            val faceIdCol = cursor.getColumnIndex("face_id_data")
+            user = User(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
+                password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
+                fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
+                phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
+                role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
             )
         }
         cursor.close()
@@ -145,6 +172,7 @@ class RestaurantRepository(context: Context) {
         val db = dbHelper.readableDatabase
         val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS}", null)
         if (cursor.moveToFirst()) {
+            val faceIdCol = cursor.getColumnIndex("face_id_data")
             do {
                 list.add(
                     User(
@@ -153,7 +181,8 @@ class RestaurantRepository(context: Context) {
                         password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
                         fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
                         phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                        role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role")))
+                        role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                        faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
                     )
                 )
             } while (cursor.moveToNext())
@@ -170,6 +199,7 @@ class RestaurantRepository(context: Context) {
             put("full_name", user.fullName)
             put("phone", user.phone)
             put("role", user.role.name)
+            put("face_id_data", user.faceIdData)
         }
         val result = db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
         if (result != -1L) {
@@ -182,12 +212,72 @@ class RestaurantRepository(context: Context) {
                     put("fullName", user.fullName)
                     put("phone", user.phone)
                     put("role", user.role.name)
+                    put("faceIdData", user.faceIdData ?: "")
                 }
                 RealtimeSyncManager.broadcast("USER_REGISTERED", payload, "Tài khoản mới: @${user.username} (${user.fullName})")
             }
             return true
         }
         return false
+    }
+
+    fun updateUserFaceId(username: String, faceIdData: String, broadcast: Boolean = true): Boolean {
+        val db = dbHelper.writableDatabase
+        val cv = ContentValues().apply {
+            put("face_id_data", faceIdData)
+        }
+        val updated = db.update(RestaurantDbHelper.TABLE_USERS, cv, "username=?", arrayOf(username)) > 0
+        if (updated) {
+            val saved = getSavedLoggedInUser()
+            if (saved?.username == username) {
+                saveLoggedInUser(saved.copy(faceIdData = faceIdData))
+            }
+            notifyDataChanged("user_face_id_updated")
+            if (broadcast) {
+                val payload = JSONObject().apply {
+                    put("username", username)
+                    put("faceIdData", faceIdData)
+                }
+                RealtimeSyncManager.broadcast("USER_FACE_ID_UPDATED", payload, "Liên kết Face ID thành công cho @$username")
+            }
+        }
+        return updated
+    }
+
+    sealed class FaceAuthResult {
+        data class Success(val user: User, val similarity: Float) : FaceAuthResult()
+        data class MismatchTargetUser(val matchedUser: User?, val targetUsername: String) : FaceAuthResult()
+        object UnrecognizedFace : FaceAuthResult()
+        object NoRegisteredFaces : FaceAuthResult()
+    }
+
+    fun authenticateByFaceId(candidateSignature: String, targetUsername: String? = null): FaceAuthResult {
+        val usersWithFace = getAllUsers().filter { !it.faceIdData.isNullOrBlank() }
+        if (usersWithFace.isEmpty()) {
+            return FaceAuthResult.NoRegisteredFaces
+        }
+
+        var bestMatchUser: User? = null
+        var bestScore = 0f
+
+        for (u in usersWithFace) {
+            val score = com.example.adr_nhom_da.data.local.FaceBiometricHelper.calculateSimilarity(candidateSignature, u.faceIdData)
+            if (score > bestScore) {
+                bestScore = score
+                bestMatchUser = u
+            }
+        }
+
+        if (bestMatchUser != null && bestScore >= com.example.adr_nhom_da.data.local.FaceBiometricHelper.DEFAULT_MATCH_THRESHOLD) {
+            // Strict verification: If a specific target username is requested, it MUST be that user
+            if (targetUsername != null && !bestMatchUser.username.equals(targetUsername, ignoreCase = true)) {
+                return FaceAuthResult.MismatchTargetUser(bestMatchUser, targetUsername)
+            }
+            saveLoggedInUser(bestMatchUser)
+            return FaceAuthResult.Success(bestMatchUser, bestScore)
+        }
+
+        return FaceAuthResult.UnrecognizedFace
     }
 
     fun updateUserPassword(userId: Long, newPass: String, broadcast: Boolean = true): Boolean {
@@ -1495,9 +1585,28 @@ class RestaurantRepository(context: Context) {
                         put("full_name", payload.optString("fullName"))
                         put("phone", payload.optString("phone", ""))
                         put("role", payload.optString("role", "USER"))
+                        val faceId = payload.optString("faceIdData")
+                        if (faceId.isNotBlank()) {
+                            put("face_id_data", faceId)
+                        }
                     }
                     db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
                     notifyDataChanged("remote_user_registered")
+                }
+
+                "USER_FACE_ID_UPDATED" -> {
+                    val db = dbHelper.writableDatabase
+                    val username = payload.optString("username")
+                    val faceIdData = payload.optString("faceIdData")
+                    val cv = ContentValues().apply {
+                        put("face_id_data", faceIdData)
+                    }
+                    db.update(RestaurantDbHelper.TABLE_USERS, cv, "username=?", arrayOf(username))
+                    val saved = getSavedLoggedInUser()
+                    if (saved?.username == username) {
+                        saveLoggedInUser(saved.copy(faceIdData = faceIdData))
+                    }
+                    notifyDataChanged("remote_user_face_id_updated")
                 }
 
                 "USER_PASSWORD_UPDATED" -> {
@@ -1521,6 +1630,7 @@ class RestaurantRepository(context: Context) {
                                 put("fullName", u.fullName)
                                 put("phone", u.phone)
                                 put("role", u.role.name)
+                                put("faceIdData", u.faceIdData ?: "")
                             })
                         }
                         put("users", usersArr)
@@ -1595,6 +1705,10 @@ class RestaurantRepository(context: Context) {
                                     put("full_name", obj.optString("fullName"))
                                     put("phone", obj.optString("phone", ""))
                                     put("role", obj.optString("role", "USER"))
+                                    val fid = obj.optString("faceIdData")
+                                    if (fid.isNotBlank()) {
+                                        put("face_id_data", fid)
+                                    }
                                 }
                                 db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
                             }

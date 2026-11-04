@@ -11,5 +11,6 @@ data class User(
     val password: String,
     val fullName: String,
     val phone: String = "",
-    val role: UserRole = UserRole.USER
+    val role: UserRole = UserRole.USER,
+    val faceIdData: String? = null
 )

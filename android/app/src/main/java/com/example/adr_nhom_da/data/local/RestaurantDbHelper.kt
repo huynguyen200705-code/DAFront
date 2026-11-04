@@ -36,7 +36,8 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 password TEXT NOT NULL,
                 full_name TEXT NOT NULL,
                 phone TEXT,
-                role TEXT NOT NULL
+                role TEXT NOT NULL,
+                face_id_data TEXT
             )
         """.trimIndent())
 
@@ -175,9 +176,22 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 phone TEXT,
                 role TEXT NOT NULL,
                 is_logged_in INTEGER DEFAULT 1,
-                last_login INTEGER NOT NULL
+                last_login INTEGER NOT NULL,
+                face_id_data TEXT
             )
         """.trimIndent())
+
+        try {
+            db.execSQL("ALTER TABLE $TABLE_USERS ADD COLUMN face_id_data TEXT")
+        } catch (e: Exception) {
+            // Column already exists
+        }
+
+        try {
+            db.execSQL("ALTER TABLE $TABLE_SESSION ADD COLUMN face_id_data TEXT")
+        } catch (e: Exception) {
+            // Column already exists
+        }
 
         db.execSQL("""
             CREATE TABLE IF NOT EXISTS $TABLE_SYSTEM_SETTINGS (
@@ -309,8 +323,10 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     private fun seedInitialData(db: SQLiteDatabase) {
         // Seed Users
-        db.execSQL("INSERT INTO $TABLE_USERS (username, password, full_name, phone, role) VALUES ('admin', '123456', 'Quản Trị Viên', '0901234567', 'ADMIN')")
-        db.execSQL("INSERT INTO $TABLE_USERS (username, password, full_name, phone, role) VALUES ('staff', '123456', 'Nhân Viên Thu Ngân', '0909876543', 'USER')")
+        val adminFaceMock = FaceBiometricHelper.createMockSignature("admin_master_face")
+        val staffFaceMock = FaceBiometricHelper.createMockSignature("staff_kitchen_face")
+        db.execSQL("INSERT INTO $TABLE_USERS (username, password, full_name, phone, role, face_id_data) VALUES ('admin', '123456', 'Quản Trị Viên', '0901234567', 'ADMIN', '$adminFaceMock')")
+        db.execSQL("INSERT INTO $TABLE_USERS (username, password, full_name, phone, role, face_id_data) VALUES ('staff', '123456', 'Nhân Viên Thu Ngân', '0909876543', 'USER', '$staffFaceMock')")
 
         // Seed Customers (5 Tiers)
         db.execSQL("INSERT INTO $TABLE_CUSTOMERS (name, phone, email, total_spent, loyalty_points) VALUES ('Nguyen Van A', '0911111111', 'a@gmail.com', 2000000.0, 20)")

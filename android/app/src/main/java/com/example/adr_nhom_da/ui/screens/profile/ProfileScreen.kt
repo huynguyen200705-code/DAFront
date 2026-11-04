@@ -38,6 +38,21 @@ fun ProfileScreen(
     var showChangePasswordDialog by remember { mutableStateOf(false) }
     var showSelfPayslipDialog by remember { mutableStateOf(false) }
     var showSelfBadgeDialog by remember { mutableStateOf(false) }
+    var showFaceIdDialog by remember { mutableStateOf(false) }
+
+    if (showFaceIdDialog) {
+        com.example.adr_nhom_da.ui.components.FaceIdEnrollmentDialog(
+            username = currentUser.username,
+            fullName = currentUser.fullName,
+            repository = repository,
+            onEnrolled = {
+                showFaceIdDialog = false
+            },
+            onDismiss = {
+                showFaceIdDialog = false
+            }
+        )
+    }
 
     var selfEmployee by remember(currentUser.fullName) {
         mutableStateOf(
@@ -210,6 +225,34 @@ fun ProfileScreen(
                         }
                         HorizontalDivider(color = Color(0xFFEEEEEE))
                     }
+
+                    // Face ID Setup / Update
+                    TextButton(
+                        onClick = { showFaceIdDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Face, contentDescription = null, tint = PrimaryRed)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    if (!currentUser.faceIdData.isNullOrBlank()) "Cập Nhật Face ID Khuôn Mặt" else "Cài Đặt Face ID Khuôn Mặt",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    if (!currentUser.faceIdData.isNullOrBlank()) "Đã liên kết Face ID • Bấm để quét lại" else "Chưa liên kết • Bấm để cài đặt Face ID",
+                                    fontSize = 11.sp,
+                                    color = if (!currentUser.faceIdData.isNullOrBlank()) Color(0xFF2E7D32) else Color.Gray
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
 
                     // Change Password
                     TextButton(
