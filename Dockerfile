@@ -30,5 +30,6 @@ EXPOSE 8080
 EXPOSE 5276
 
 COPY --from=build /app/publish .
+COPY --from=build /src/0859_NguyenQuocHuy_WebAPI/RestaurantPOS.db ./RestaurantPOS.db
 
 ENTRYPOINT ["dotnet", "DA_Restaurant_Api.dll"]

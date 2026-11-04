@@ -50,9 +50,8 @@ echo     http://26.38.230.253:5276/api/  (Radmin VPN)
 echo     http://10.0.2.2:5276/api/        (Dung tren Android Emulator)
 echo ===============================================================================
 echo.
-echo [*] Dang mo trinh duyet Web Admin Dashboard...
-start "" http://localhost:5276/
-echo [*] Dang khoi dong Web API server...
+echo [*] Dang khoi dong Web API server va tu dong mo Dashboard sau 3s...
+start "" /b cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:5276/"
 echo.
 
 cd /d "%~dp0\0859_NguyenQuocHuy_WebAPI"

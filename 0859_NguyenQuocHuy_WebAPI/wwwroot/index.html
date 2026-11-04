@@ -1297,10 +1297,16 @@
         }
 
         // 1. Thống kê tổng quan
+        let _overviewRetryTimer = null;
         async function loadOverviewMetrics() {
             try {
                 const res = await fetch('/api/app/overview');
-                if (!res.ok) return;
+                if (!res.ok) {
+                    if (!_overviewRetryTimer) {
+                        _overviewRetryTimer = setTimeout(() => { _overviewRetryTimer = null; loadOverviewMetrics(); }, 2500);
+                    }
+                    return;
+                }
                 const data = await res.json();
                 if (data.success) {
                     document.getElementById('serverStatusText').textContent = `Máy chủ: ${data.system.status} (${data.system.uptimeFormatted})`;

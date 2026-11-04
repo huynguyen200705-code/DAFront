@@ -3,8 +3,10 @@
 [Oo]bj/
 publish/
 
-## SQLite database files (auto-created on startup)
+## SQLite database files (allow RestaurantPOS.db with seed data)
 *.db
+!RestaurantPOS.db
+!0859_NguyenQuocHuy_WebAPI/RestaurantPOS.db
 *.db-shm
 *.db-wal
 

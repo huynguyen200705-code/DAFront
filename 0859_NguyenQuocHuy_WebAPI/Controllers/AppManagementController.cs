@@ -39,14 +39,32 @@ public class AppManagementController : ControllerBase
         try
         {
             // 1. Thống kê sản phẩm và danh mục
-            var totalProducts = await _dbContext.Products.CountAsync();
-            var totalCategories = await _dbContext.Categories.CountAsync();
-            var unassignedProducts = await _dbContext.Products.CountAsync(p => p.CategoryId == null);
+            int totalProducts = 0, totalCategories = 0, unassignedProducts = 0;
+            try
+            {
+                totalProducts = await _dbContext.Products.CountAsync();
+                totalCategories = await _dbContext.Categories.CountAsync();
+                unassignedProducts = await _dbContext.Products.CountAsync(p => p.CategoryId == null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Thống kê catalog cảnh báo: {Message}", ex.Message);
+            }
 
             // 2. Thống kê tài khoản Identity
-            var totalUsers = await _userManager.Users.CountAsync();
-            var adminUsers = await _userManager.GetUsersInRoleAsync("Admin");
-            var regularUsers = await _userManager.GetUsersInRoleAsync("User");
+            int totalUsers = 0, adminCount = 0, userCount = 0;
+            try
+            {
+                totalUsers = await _userManager.Users.CountAsync();
+                var admins = await _userManager.GetUsersInRoleAsync("Admin");
+                adminCount = admins.Count;
+                var regulars = await _userManager.GetUsersInRoleAsync("User");
+                userCount = regulars.Count;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Thống kê users cảnh báo: {Message}", ex.Message);
+            }
 
             // 3. Thống kê Nhà hàng & POS
             var totalTables = await _dbContext.RestaurantTables.CountAsync();
@@ -97,8 +115,8 @@ public class AppManagementController : ControllerBase
                 users = new
                 {
                     totalUsers,
-                    adminCount = adminUsers.Count,
-                    userCount = regularUsers.Count
+                    adminCount,
+                    userCount
                 },
                 restaurantPOS = new
                 {
