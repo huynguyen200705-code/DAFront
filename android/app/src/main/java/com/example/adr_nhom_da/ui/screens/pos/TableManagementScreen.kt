@@ -519,12 +519,13 @@ fun TableManagementScreen(
                     Button(
                         onClick = {
                             RealtimeSyncManager.sendPing()
+                            RealtimeSyncManager.broadcast("REQUEST_FULL_SYNC", org.json.JSONObject(), "Yêu cầu đồng bộ lại toàn bộ dữ liệu")
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryRed),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("⚡ Bấm gửi tín hiệu kiểm tra (Ping)")
+                        Text("⚡ Đồng Bộ Ngay & Gửi Tín Hiệu (Ping)")
                     }
                 }
             },
