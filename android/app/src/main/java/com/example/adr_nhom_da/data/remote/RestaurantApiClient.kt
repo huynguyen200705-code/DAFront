@@ -1,4 +1,4 @@
-﻿package com.example.adr_nhom_da.data.remote
+package com.example.adr_nhom_da.data.remote
 
 import com.example.adr_nhom_da.data.model.*
 import kotlinx.coroutines.Dispatchers
@@ -12,10 +12,41 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object RestaurantApiClient {
-    // 10.0.2.2 points to host machine from Android Emulator
-    // Or replace with machine LAN IP e.g. "http://192.168.1.3:5276" for real device
-    var baseUrl: String = "http://10.0.2.2:5276"
+    // Default to current Wi-Fi LAN IP so real devices can connect immediately
+    var baseUrl: String = "http://10.15.187.151:5276"
     var authToken: String? = null
+
+    fun updateBaseUrl(rawUrl: String) {
+        var cleaned = rawUrl.trim()
+        if (cleaned.endsWith("/api/")) {
+            cleaned = cleaned.removeSuffix("/api/")
+        } else if (cleaned.endsWith("/api")) {
+            cleaned = cleaned.removeSuffix("/api")
+        }
+        if (cleaned.endsWith("/")) {
+            cleaned = cleaned.dropLast(1)
+        }
+        baseUrl = cleaned
+    }
+
+    fun init(context: android.content.Context) {
+        try {
+            context.assets.open(".env").bufferedReader().useLines { lines ->
+                for (line in lines) {
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("BASE_URL=") && !trimmed.startsWith("#")) {
+                        val urlVal = trimmed.substringAfter("BASE_URL=").trim()
+                        if (urlVal.isNotBlank()) {
+                            updateBaseUrl(urlVal)
+                            break
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Keep default baseUrl if .env is missing
+        }
+    }
 
     suspend fun ping(): Boolean = withContext(Dispatchers.IO) {
         try {

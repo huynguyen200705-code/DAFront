@@ -6,6 +6,7 @@ import android.util.Log
 import com.example.adr_nhom_da.data.local.RestaurantDbHelper
 import com.example.adr_nhom_da.data.model.*
 import com.example.adr_nhom_da.data.remote.RealtimeSyncManager
+import com.example.adr_nhom_da.data.remote.RestaurantApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
@@ -23,7 +24,10 @@ class RestaurantRepository(context: Context) {
     }
 
     init {
-        // Start Realtime Sync Engine (P2P Wi-Fi UDP Multicast listener)
+        // Initialize Web API Client with .env config
+        RestaurantApiClient.init(context)
+
+        // Start Realtime Sync Engine (Cloud MQTT & P2P UDP listener)
         RealtimeSyncManager.start(context)
         RealtimeSyncManager.onRemoteEventReceived = { type, payload, message ->
             handleRemoteSyncEvent(type, payload, message)
