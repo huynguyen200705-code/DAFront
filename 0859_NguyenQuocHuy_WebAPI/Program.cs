@@ -38,8 +38,20 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     if (useSqlite || string.IsNullOrEmpty(connectionString))
     {
-        // SQLite — lưu cố định tại thư mục ContentRoot của dự án để đảm bảo dữ liệu luôn đồng nhất
-        var dbPath = Path.Combine(builder.Environment.ContentRootPath, "RestaurantPOS.db");
+        // SQLite — tự động chọn file CSDL có dữ liệu đầy đủ nhất tại ContentRoot, thư mục con hoặc thư mục cha
+        var rootDb = Path.Combine(builder.Environment.ContentRootPath, "RestaurantPOS.db");
+        var subDb = Path.Combine(builder.Environment.ContentRootPath, "0859_NguyenQuocHuy_WebAPI", "RestaurantPOS.db");
+        var parentDb = Path.Combine(Directory.GetParent(builder.Environment.ContentRootPath)?.FullName ?? "", "RestaurantPOS.db");
+
+        string dbPath = rootDb;
+        if (File.Exists(subDb) && (!File.Exists(rootDb) || new FileInfo(subDb).Length > new FileInfo(rootDb).Length))
+        {
+            dbPath = subDb;
+        }
+        else if (File.Exists(parentDb) && (!File.Exists(rootDb) || new FileInfo(parentDb).Length > new FileInfo(rootDb).Length))
+        {
+            dbPath = parentDb;
+        }
         options.UseSqlite($"Data Source={dbPath}");
     }
     else

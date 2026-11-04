@@ -438,10 +438,13 @@ public class RestaurantSyncController : ControllerBase
         var customersCount = await _context.Customers.CountAsync();
         var employeesCount = await _context.Employees.CountAsync();
         var ordersCount = await _context.Orders.CountAsync();
-        var totalRevenue = await _context.Orders.SumAsync(o => (double?)o.FinalTotal) ?? 0.0;
+        var allOrdersForRev = await _context.Orders
+            .Select(o => new { o.Subtotal, o.DiscountPercent, o.Timestamp })
+            .ToListAsync();
+        var totalRevenue = allOrdersForRev.Sum(o => o.Subtotal * (1.0 - o.DiscountPercent / 100.0));
         var now = DateTimeOffset.UtcNow;
         var startOfToday = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
-        var todayRevenue = await _context.Orders.Where(o => o.Timestamp >= startOfToday).SumAsync(o => (double?)o.FinalTotal) ?? 0.0;
+        var todayRevenue = allOrdersForRev.Where(o => o.Timestamp >= startOfToday).Sum(o => o.Subtotal * (1.0 - o.DiscountPercent / 100.0));
         var attendanceCount = await _context.AttendanceRecords.CountAsync();
         var activitiesCount = await _context.AppActivities.CountAsync();
         var activeOrdersCount = await _context.ActiveTableOrders.CountAsync();
@@ -537,6 +540,47 @@ public class RestaurantSyncController : ControllerBase
         await _context.SaveChangesAsync();
         await _notificationService.RecordActivityAsync(new AppActivity { Action = "NHAN VIEN: " + ex.Name, Description = "App dong bo: " + ex.Name + " (" + ex.Phone + ") | " + ex.Position, Category = "Employee", Source = "App Android", Status = "SUCCESS", Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
         return Ok(new { success = true, id = ex.Id, message = "Da luu nhan vien." });
+    }
+
+    [HttpPost("user")]
+    public async Task<IActionResult> SyncSingleUser([FromBody] UserSyncDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Username))
+            return BadRequest(new { success = false, message = "Username không hợp lệ." });
+
+        var ex = await _context.RestaurantUsers.FirstOrDefaultAsync(u => u.Username.ToLower() == dto.Username.ToLower());
+        if (ex == null)
+        {
+            ex = new RestaurantUser
+            {
+                Username = dto.Username.Trim(),
+                Password = dto.Password ?? "123",
+                FullName = dto.FullName ?? dto.Username,
+                Phone = dto.Phone ?? "",
+                Role = (dto.Role ?? "USER").ToUpper()
+            };
+            _context.RestaurantUsers.Add(ex);
+        }
+        else
+        {
+            ex.FullName = dto.FullName ?? ex.FullName;
+            ex.Phone = dto.Phone ?? ex.Phone;
+            ex.Password = !string.IsNullOrEmpty(dto.Password) ? dto.Password : ex.Password;
+            ex.Role = !string.IsNullOrEmpty(dto.Role) ? dto.Role.ToUpper() : ex.Role;
+        }
+        await _context.SaveChangesAsync();
+
+        await _notificationService.RecordActivityAsync(new AppActivity
+        {
+            Action = "TÀI KHOẢN: @" + ex.Username,
+            Description = $"App đồng bộ tài khoản: @{ex.Username} ({ex.FullName}) | Quyền: {ex.Role}",
+            Category = "User",
+            Source = "📱 App Android",
+            Status = "SUCCESS",
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+
+        return Ok(new { success = true, id = ex.Id, message = "Đã lưu tài khoản người dùng." });
     }
 
     [HttpPost("table")]
@@ -687,4 +731,14 @@ public class OrderSyncDto
     public string? PaymentMethod { get; set; }
     public string? StaffName { get; set; }
     public long CreatedAt { get; set; }
+}
+
+public class UserSyncDto
+{
+    public long? Id { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string? Password { get; set; }
+    public string? FullName { get; set; }
+    public string? Phone { get; set; }
+    public string? Role { get; set; }
 }

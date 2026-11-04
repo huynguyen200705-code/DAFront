@@ -1,3 +1,4 @@
+using _0859_NguyenQuocHuy_WebAPI.Services;
 using _0859_NguyenQuocHuy_WebAPI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -17,6 +18,8 @@ public class AuthenticateController : ControllerBase
 {
     private readonly UserManager<User> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly ApplicationDbContext _context;
+    private readonly IAppNotificationService _notificationService;
     private readonly IConfiguration _config;
     private readonly ILogger<AuthenticateController> _logger;
 
@@ -26,11 +29,15 @@ public class AuthenticateController : ControllerBase
     public AuthenticateController(
         UserManager<User> userManager,
         RoleManager<IdentityRole> roleManager,
+        ApplicationDbContext context,
+        IAppNotificationService notificationService,
         IConfiguration config,
         ILogger<AuthenticateController> logger)
     {
         _userManager = userManager;
         _roleManager = roleManager;
+        _context = context;
+        _notificationService = notificationService;
         _config = config;
         _logger = logger;
     }
@@ -46,8 +53,22 @@ public class AuthenticateController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        // Kiểm tra xem username hoặc email đã tồn tại hay chưa
-        var accountByUsername = await _userManager.FindByNameAsync(request.Username);
+        // 1. Chuẩn hóa Email (tự động tạo nếu để trống từ App)
+        var email = string.IsNullOrWhiteSpace(request.Email)
+            ? $"{request.Username.Trim().ToLower()}@restaurant.com"
+            : request.Email.Trim();
+
+        // 2. Tự động tính chữ cái viết tắt (Initials) nếu để trống
+        var initials = request.Initials?.Trim();
+        if (string.IsNullOrEmpty(initials) && !string.IsNullOrWhiteSpace(request.FullName))
+        {
+            var parts = request.FullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            initials = string.Concat(parts.Select(p => p[0])).ToUpper();
+            if (initials.Length > 5) initials = initials.Substring(0, 5);
+        }
+
+        // 3. Kiểm tra xem tên đăng nhập đã tồn tại trong hệ thống Identity hoặc POS chưa
+        var accountByUsername = await _userManager.FindByNameAsync(request.Username.Trim());
         if (accountByUsername is not null)
         {
             return BadRequest(new 
@@ -57,22 +78,29 @@ public class AuthenticateController : ControllerBase
             });
         }
 
-        var accountByEmail = await _userManager.FindByEmailAsync(request.Email);
+        var accountByEmail = await _userManager.FindByEmailAsync(email);
         if (accountByEmail is not null)
         {
-            return BadRequest(new 
-            { 
-                status = false, 
-                message = "Địa chỉ email đã được sử dụng." 
-            });
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                email = $"{request.Username.Trim().ToLower()}_{Guid.NewGuid().ToString().Substring(0, 4)}@restaurant.com";
+            }
+            else
+            {
+                return BadRequest(new 
+                { 
+                    status = false, 
+                    message = "Địa chỉ email đã được sử dụng." 
+                });
+            }
         }
 
-        // Khởi tạo người dùng mới
+        // 4. Khởi tạo tài khoản Identity chuẩn ASP.NET Core
         var newUser = new User
         {
             UserName = request.Username.Trim(),
-            Email = request.Email.Trim(),
-            Initials = request.Initials?.Trim()
+            Email = email,
+            Initials = initials
         };
 
         var creationResult = await _userManager.CreateAsync(newUser, request.Password);
@@ -88,14 +116,41 @@ public class AuthenticateController : ControllerBase
             });
         }
 
-        // Gán vai trò (mặc định là 'User')
-        var targetRole = string.IsNullOrWhiteSpace(request.Role) ? "User" : request.Role.Trim();
+        // 5. Chuẩn hóa và gán vai trò (ADMIN / USER)
+        var roleUpper = (request.Role ?? "USER").Trim().ToUpper();
+        var targetRole = roleUpper == "ADMIN" ? "Admin" : "User";
         if (!await _roleManager.RoleExistsAsync(targetRole))
         {
             await _roleManager.CreateAsync(new IdentityRole(targetRole));
         }
-
         await _userManager.AddToRoleAsync(newUser, targetRole);
+
+        // 6. Đồng bộ lưu vào bảng restaurant_users của POS (đồng bộ 100% với App Android)
+        var restUser = await _context.RestaurantUsers.FirstOrDefaultAsync(u => u.Username.ToLower() == request.Username.Trim().ToLower());
+        if (restUser == null)
+        {
+            restUser = new RestaurantUser
+            {
+                Username = request.Username.Trim(),
+                Password = request.Password,
+                FullName = !string.IsNullOrWhiteSpace(request.FullName) ? request.FullName.Trim() : request.Username.Trim(),
+                Phone = request.Phone?.Trim() ?? "",
+                Role = roleUpper
+            };
+            _context.RestaurantUsers.Add(restUser);
+            await _context.SaveChangesAsync();
+        }
+
+        // 7. Ghi nhận hoạt động và phát thông báo Real-time cho Web Admin Dashboard
+        await _notificationService.RecordActivityAsync(new AppActivity
+        {
+            Action = "TÀI KHOẢN MỚI: @" + request.Username,
+            Description = $"Đăng ký tài khoản mới: @{request.Username} ({request.FullName ?? "Người dùng"}) | Quyền: {roleUpper}",
+            Category = "User",
+            Source = "📱 App Android",
+            Status = "SUCCESS",
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
 
         _logger.LogInformation("Người dùng {Username} đăng ký thành công với quyền {Role}", newUser.UserName, targetRole);
         return Ok(new 
@@ -103,7 +158,10 @@ public class AuthenticateController : ControllerBase
             status = true, 
             message = "Tạo tài khoản người dùng thành công.",
             role = targetRole,
-            username = newUser.UserName
+            username = newUser.UserName,
+            fullName = request.FullName ?? request.Username,
+            phone = request.Phone,
+            email = email
         });
     }
 
@@ -118,15 +176,49 @@ public class AuthenticateController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        // Tìm người dùng theo username
+        // Tìm người dùng theo username trong hệ thống Identity hoặc POS
         var appUser = await _userManager.FindByNameAsync(request.Username.Trim());
         if (appUser is null || !await _userManager.CheckPasswordAsync(appUser, request.Password))
         {
-            return Unauthorized(new 
-            { 
-                status = false, 
-                message = "Tài khoản hoặc mật khẩu không chính xác." 
-            });
+            // Kiểm tra trong bảng restaurant_users của App POS
+            var restUser = await _context.RestaurantUsers
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == request.Username.Trim().ToLower() && u.Password == request.Password);
+
+            if (restUser != null)
+            {
+                var targetRole = restUser.Role.ToUpper() == "ADMIN" ? "Admin" : "User";
+                if (appUser == null)
+                {
+                    appUser = new User
+                    {
+                        UserName = restUser.Username,
+                        Email = $"{restUser.Username.ToLower()}@restaurant.com"
+                    };
+                    await _userManager.CreateAsync(appUser, request.Password);
+                }
+                else
+                {
+                    var resetToken = await _userManager.GeneratePasswordResetTokenAsync(appUser);
+                    await _userManager.ResetPasswordAsync(appUser, resetToken, request.Password);
+                }
+
+                if (!await _roleManager.RoleExistsAsync(targetRole))
+                {
+                    await _roleManager.CreateAsync(new IdentityRole(targetRole));
+                }
+                if (!await _userManager.IsInRoleAsync(appUser, targetRole))
+                {
+                    await _userManager.AddToRoleAsync(appUser, targetRole);
+                }
+            }
+            else
+            {
+                return Unauthorized(new 
+                { 
+                    status = false, 
+                    message = "Tài khoản hoặc mật khẩu không chính xác." 
+                });
+            }
         }
 
         // Lấy danh sách vai trò

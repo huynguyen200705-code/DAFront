@@ -59,16 +59,16 @@ public class AppManagementController : ControllerBase
             var totalCustomers = await _dbContext.Customers.CountAsync();
             var totalOrders = await _dbContext.Orders.CountAsync();
 
-            var totalRevenue = await _dbContext.Orders.SumAsync(o => (double?)o.FinalTotal) ?? 0.0;
-
             var now = DateTimeOffset.UtcNow;
             var startOfToday = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
-            var todayOrders = await _dbContext.Orders
-                .Where(o => o.Timestamp >= startOfToday)
+            var allOrdersList = await _dbContext.Orders
+                .Select(o => new { o.Subtotal, o.DiscountPercent, o.Timestamp })
                 .ToListAsync();
 
-            var todayRevenue = todayOrders.Sum(o => o.FinalTotal);
+            var totalRevenue = allOrdersList.Sum(o => o.Subtotal * (1.0 - o.DiscountPercent / 100.0));
+            var todayOrders = allOrdersList.Where(o => o.Timestamp >= startOfToday).ToList();
+            var todayRevenue = todayOrders.Sum(o => o.Subtotal * (1.0 - o.DiscountPercent / 100.0));
             var todayOrdersCount = todayOrders.Count;
 
             // 4. Thông tin máy chủ
@@ -208,9 +208,9 @@ public class AppManagementController : ControllerBase
                     .Select(c => new { c.Id, c.Name, c.Phone, TotalSpent = c.TotalSpent, LoyaltyPoints = c.LoyaltyPoints })
                     .Take(5).ToListAsync(),
 
-                orders = await _dbContext.Orders
+                orders = (await _dbContext.Orders.OrderByDescending(o => o.Id).Take(5).ToListAsync())
                     .Select(o => new { o.Id, o.TableName, o.EmployeeName, o.FinalTotal, o.PaymentMethod, o.Status })
-                    .Take(5).ToListAsync(),
+                    .ToList(),
             };
 
             var totalTables = tableStats.Count;
