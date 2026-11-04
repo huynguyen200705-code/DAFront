@@ -1,3 +1,4 @@
+using _0859_NguyenQuocHuy_WebAPI.Services;
 using _0859_NguyenQuocHuy_WebAPI.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,10 +10,12 @@ namespace _0859_NguyenQuocHuy_WebAPI.Controllers;
 public class RestaurantMenuItemsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IAppNotificationService? _notificationService;
 
-    public RestaurantMenuItemsController(ApplicationDbContext context)
+    public RestaurantMenuItemsController(ApplicationDbContext context, IAppNotificationService? notificationService = null)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     [HttpGet]
@@ -68,6 +71,19 @@ public class RestaurantMenuItemsController : ControllerBase
 
         _context.MenuItems.Add(item);
         await _context.SaveChangesAsync();
+
+        if (_notificationService != null)
+        {
+            await _notificationService.RecordActivityAsync(new AppActivity
+            {
+                Action = "THỰC ĐƠN MỚI: " + item.Name,
+                Description = $"Thêm món '{item.Name}' ({item.Category}) - Giá {item.Price:N0} đ",
+                Category = "Menu",
+                Source = "🌐 Web API / Dashboard",
+                Status = "SUCCESS",
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+        }
 
         return CreatedAtAction(nameof(GetById), new { id = item.Id }, new { success = true, data = item });
     }

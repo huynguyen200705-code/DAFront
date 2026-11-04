@@ -146,6 +146,19 @@
                     <small id="serverStatusText">Máy chủ: Hoạt động (Online)</small>
                 </div>
 
+                <!-- Quick Navigation Action Buttons -->
+                <div class="d-none d-lg-flex align-items-center gap-1 me-2">
+                    <button class="btn btn-sm btn-success fw-bold d-flex align-items-center shadow-sm" data-bs-toggle="modal" data-bs-target="#addMenuItemModal" title="Thêm món ăn mới vào thực đơn">
+                        <i class="fa-solid fa-plus-circle me-1"></i> Thêm Món
+                    </button>
+                    <button class="btn btn-sm btn-info text-white fw-bold d-flex align-items-center shadow-sm" data-bs-toggle="modal" data-bs-target="#registerUserModal" title="Đăng ký tài khoản người dùng">
+                        <i class="fa-solid fa-user-plus me-1"></i> Đăng Ký
+                    </button>
+                    <button class="btn btn-sm btn-primary fw-bold d-flex align-items-center shadow-sm" data-bs-toggle="modal" data-bs-target="#customLoginModal" title="Đăng nhập tài khoản">
+                        <i class="fa-solid fa-right-to-bracket me-1"></i> Đăng Nhập
+                    </button>
+                </div>
+
                 <!-- Live Notification Bell Button -->
                 <button class="btn btn-sm btn-outline-info d-flex align-items-center position-relative me-1" onclick="openNotificationsTab()" title="Xem hoạt động từ Mobile App">
                     <i class="fa-solid fa-bell me-1 text-warning"></i>
@@ -179,66 +192,152 @@
     <!-- Main Content Area -->
     <div class="container-fluid px-4 py-4">
 
+        <!-- Quick Action Bar: Thêm Món, Đăng Ký, Đăng Nhập -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white border">
+            <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-primary-subtle text-primary p-2 rounded-circle shadow-sm" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-bolt-lightning fs-5"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark">Thao Tác Quản Lý Nhanh (Quick Actions)</h6>
+                        <small class="text-muted">Đăng ký tài khoản mới, Đăng nhập hệ thống và Thêm món ăn vào thực đơn nhà hàng</small>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <!-- Nút Thêm Món Ăn -->
+                    <button class="btn btn-success fw-bold px-3 py-2 rounded-3 shadow-sm d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#addMenuItemModal">
+                        <i class="fa-solid fa-plus-circle me-2 fs-6"></i>
+                        <span>Thêm Món Ăn Mới</span>
+                    </button>
+
+                    <!-- Nút Đăng Ký Tài Khoản -->
+                    <button class="btn btn-info text-white fw-bold px-3 py-2 rounded-3 shadow-sm d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#registerUserModal">
+                        <i class="fa-solid fa-user-plus me-2 fs-6"></i>
+                        <span>Đăng Ký Tài Khoản</span>
+                    </button>
+
+                    <!-- Nút Đăng Nhập -->
+                    <button class="btn btn-primary fw-bold px-3 py-2 rounded-3 shadow-sm d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#customLoginModal">
+                        <i class="fa-solid fa-right-to-bracket me-2 fs-6"></i>
+                        <span>Đăng Nhập</span>
+                    </button>
+
+                    <!-- Nút Làm Mới Dữ Liệu -->
+                    <button class="btn btn-outline-secondary fw-semibold px-3 py-2 rounded-3 shadow-sm d-flex align-items-center" onclick="loadOverviewMetrics()" title="Làm mới toàn bộ số liệu thống kê">
+                        <i class="fa-solid fa-rotate me-1"></i>
+                        <span>Làm Mới</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Top Metric Summary Cards -->
         <div class="row g-3 mb-4" id="metricsContainer">
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="metric-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small fw-semibold">Bàn Đang Phục Vụ</span>
-                        <div class="metric-icon bg-danger-subtle text-danger"><i class="fa-solid fa-chair"></i></div>
+                <div class="metric-card d-flex flex-column justify-content-between h-100">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-semibold">Bàn Đang Phục Vụ</span>
+                            <div class="metric-icon bg-danger-subtle text-danger"><i class="fa-solid fa-chair"></i></div>
+                        </div>
+                        <h3 class="fw-bold mb-0" id="statActiveTables">0</h3>
+                        <small class="text-muted" id="statTotalTables">/ 0 bàn</small>
                     </div>
-                    <h3 class="fw-bold mb-0" id="statActiveTables">0</h3>
-                    <small class="text-muted" id="statTotalTables">/ 0 bàn</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <button class="btn btn-sm btn-outline-danger w-100 rounded-pill py-1 fw-semibold" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#addTableModal">
+                            <i class="fa-solid fa-plus me-1"></i>Thêm Bàn
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="metric-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small fw-semibold">Đơn Hôm Nay</span>
-                        <div class="metric-icon bg-success-subtle text-success"><i class="fa-solid fa-receipt"></i></div>
+                <div class="metric-card d-flex flex-column justify-content-between h-100">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-semibold">Đơn Hôm Nay</span>
+                            <div class="metric-icon bg-success-subtle text-success"><i class="fa-solid fa-receipt"></i></div>
+                        </div>
+                        <h3 class="fw-bold mb-0" id="statTodayOrders">0</h3>
+                        <small class="text-muted" id="statTotalOrders">Tổng: 0 đơn</small>
                     </div>
-                    <h3 class="fw-bold mb-0" id="statTodayOrders">0</h3>
-                    <small class="text-muted" id="statTotalOrders">Tổng: 0 đơn</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <button class="btn btn-sm btn-outline-success w-100 rounded-pill py-1 fw-semibold" style="font-size: 0.75rem;" onclick="document.getElementById('orders-tab').click()">
+                            <i class="fa-solid fa-eye me-1"></i>Xem Đơn Hàng
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="metric-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small fw-semibold">Doanh Thu Hôm Nay</span>
-                        <div class="metric-icon bg-warning-subtle text-warning"><i class="fa-solid fa-coins"></i></div>
+                <div class="metric-card d-flex flex-column justify-content-between h-100">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-semibold">Doanh Thu Hôm Nay</span>
+                            <div class="metric-icon bg-warning-subtle text-warning"><i class="fa-solid fa-coins"></i></div>
+                        </div>
+                        <h4 class="fw-bold mb-0 text-success" id="statTodayRevenue">0 đ</h4>
+                        <small class="text-muted" id="statTotalRevenue">Toàn thời gian: 0 đ</small>
                     </div>
-                    <h4 class="fw-bold mb-0 text-success" id="statTodayRevenue">0 đ</h4>
-                    <small class="text-muted" id="statTotalRevenue">Toàn thời gian: 0 đ</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <button class="btn btn-sm btn-outline-warning text-dark w-100 rounded-pill py-1 fw-semibold" style="font-size: 0.75rem;" onclick="loadOverviewMetrics()">
+                            <i class="fa-solid fa-rotate me-1"></i>Cập Nhật
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="metric-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small fw-semibold">Thực Đơn Món Ăn</span>
-                        <div class="metric-icon bg-info-subtle text-info"><i class="fa-solid fa-bowl-food"></i></div>
+                <div class="metric-card d-flex flex-column justify-content-between h-100 border border-success-subtle shadow-sm">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-semibold">Thực Đơn Món Ăn</span>
+                            <div class="metric-icon bg-info-subtle text-info"><i class="fa-solid fa-bowl-food"></i></div>
+                        </div>
+                        <h3 class="fw-bold mb-0 text-info" id="statMenuItems">0</h3>
+                        <small class="text-muted">Món ăn & Đồ uống</small>
                     </div>
-                    <h3 class="fw-bold mb-0" id="statMenuItems">0</h3>
-                    <small class="text-muted">Món ăn & Đồ uống</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <button class="btn btn-sm btn-success w-100 rounded-pill py-1 fw-bold shadow-sm" style="font-size: 0.78rem;" data-bs-toggle="modal" data-bs-target="#addMenuItemModal">
+                            <i class="fa-solid fa-plus-circle me-1"></i>+ Thêm Món
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="metric-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small fw-semibold">Sản Phẩm & Danh Mục</span>
-                        <div class="metric-icon bg-primary-subtle text-primary"><i class="fa-solid fa-tags"></i></div>
+                <div class="metric-card d-flex flex-column justify-content-between h-100">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-semibold">Sản Phẩm & Danh Mục</span>
+                            <div class="metric-icon bg-primary-subtle text-primary"><i class="fa-solid fa-tags"></i></div>
+                        </div>
+                        <h3 class="fw-bold mb-0" id="statProducts">0</h3>
+                        <small class="text-muted" id="statCategories">/ 0 danh mục</small>
                     </div>
-                    <h3 class="fw-bold mb-0" id="statProducts">0</h3>
-                    <small class="text-muted" id="statCategories">/ 0 danh mục</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <button class="btn btn-sm btn-outline-primary w-100 rounded-pill py-1 fw-semibold" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                            <i class="fa-solid fa-plus me-1"></i>Thêm Sản Phẩm
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-xl-2">
-                <div class="metric-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small fw-semibold">Tài Khoản Identity</span>
-                        <div class="metric-icon bg-secondary-subtle text-secondary"><i class="fa-solid fa-users"></i></div>
+                <div class="metric-card d-flex flex-column justify-content-between h-100 border border-primary-subtle shadow-sm">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-semibold">Tài Khoản Identity</span>
+                            <div class="metric-icon bg-secondary-subtle text-secondary"><i class="fa-solid fa-users"></i></div>
+                        </div>
+                        <h3 class="fw-bold mb-0 text-primary" id="statUsers">0</h3>
+                        <small class="text-muted" id="statAdmins">0 Admin / 0 User</small>
                     </div>
-                    <h3 class="fw-bold mb-0" id="statUsers">0</h3>
-                    <small class="text-muted" id="statAdmins">0 Admin / 0 User</small>
+                    <div class="mt-2 pt-2 border-top d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary flex-fill rounded-pill py-1 fw-semibold" style="font-size: 0.72rem;" data-bs-toggle="modal" data-bs-target="#registerUserModal" title="Đăng ký tài khoản">
+                            <i class="fa-solid fa-user-plus me-1"></i>Đăng Ký
+                        </button>
+                        <button class="btn btn-sm btn-primary flex-fill rounded-pill py-1 fw-semibold shadow-sm" style="font-size: 0.72rem;" data-bs-toggle="modal" data-bs-target="#customLoginModal" title="Đăng nhập tài khoản">
+                            <i class="fa-solid fa-right-to-bracket me-1"></i>Đăng Nhập
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -987,22 +1086,22 @@
         </div>
     </div>
 
-    <!-- Modal Thêm Món Vào Thực Đơn (MenuItem) -->
+    <!-- Modal Thêm Món Vào Thực Đơn (MenuItem & App POS) -->
     <div class="modal fade" id="addMenuItemModal" tabindex="-1">
         <div class="modal-dialog">
-            <div class="modal-content rounded-4">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Thêm Món Ăn Mới</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-content rounded-4 shadow">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-bowl-food me-2"></i>Thêm Món Ăn Mới Vào Thực Đơn</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Tên món ăn</label>
-                        <input type="text" id="newMenuItemName" class="form-control" placeholder="Ví dụ: Lẩu Thái Chua Cay...">
+                        <label class="form-label fw-semibold">Tên món ăn <span class="text-danger">*</span></label>
+                        <input type="text" id="newMenuItemName" class="form-control" placeholder="Ví dụ: Lẩu Thái Hải Sản, Gỏi Ngó Sen Tôm Thịt..." required>
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col-6">
-                            <label class="form-label fw-semibold">Phân loại</label>
+                            <label class="form-label fw-semibold">Phân loại món</label>
                             <input type="text" id="newMenuItemCategory" class="form-control" list="categoryOptions" placeholder="Khai vị, Món chính...">
                             <datalist id="categoryOptions">
                                 <option value="Khai vị">
@@ -1014,18 +1113,24 @@
                             </datalist>
                         </div>
                         <div class="col-6">
-                            <label class="form-label fw-semibold">Đơn giá (VNĐ)</label>
-                            <input type="number" id="newMenuItemPrice" class="form-control" placeholder="120000" min="0">
+                            <label class="form-label fw-semibold">Đơn giá (VNĐ) <span class="text-danger">*</span></label>
+                            <input type="number" id="newMenuItemPrice" class="form-control" placeholder="120000" min="0" step="1000" required>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Mô tả món ăn</label>
-                        <textarea id="newMenuItemDesc" class="form-control" rows="2" placeholder="Thành phần, hương vị đặc sắc..."></textarea>
+                        <textarea id="newMenuItemDesc" class="form-control" rows="2" placeholder="Thành phần, hương vị đặc sắc, cách chế biến..."></textarea>
+                    </div>
+                    <div class="form-check form-switch mb-2 p-2 bg-light rounded border">
+                        <input class="form-check-input ms-0 me-2" type="checkbox" id="syncToCatalogProductCheckbox" checked>
+                        <label class="form-check-label fw-semibold small" for="syncToCatalogProductCheckbox">
+                            Đồng thời thêm vào danh mục Sản Phẩm (Catalog Products)
+                        </label>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-primary" onclick="submitAddMenuItem()">Lưu Món</button>
+                    <button type="button" class="btn btn-success fw-bold px-4" onclick="submitAddMenuItem()"><i class="fa-solid fa-check me-1"></i>Lưu Món Ăn</button>
                 </div>
             </div>
         </div>
@@ -1099,70 +1204,99 @@
         </div>
     </div>
 
-    <!-- Modal Đăng Ký Tài Khoản Mới (Identity) -->
+    <!-- Modal Đăng Ký Tài Khoản Mới (Identity & App POS) -->
     <div class="modal fade" id="registerUserModal" tabindex="-1">
         <div class="modal-dialog">
-            <div class="modal-content rounded-4">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Tạo Tài Khoản Người Dùng Mới</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-content rounded-4 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-user-plus me-2"></i>Đăng Ký Tài Khoản Người Dùng Mới</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Tên đăng nhập</label>
-                        <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: nhanvien1, thungan2...">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Email</label>
-                        <input type="email" id="regEmail" class="form-control" placeholder="nhanvien1@restaurant.com">
+                        <label class="form-label fw-semibold">Tên đăng nhập (Username) <span class="text-danger">*</span></label>
+                        <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: nhanvien1, thungan2, admin2..." required>
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col-6">
-                            <label class="form-label fw-semibold">Mật khẩu</label>
-                            <input type="password" id="regPassword" class="form-control" placeholder="Tối thiểu 6 ký tự">
+                            <label class="form-label fw-semibold">Họ và tên</label>
+                            <input type="text" id="regFullName" class="form-control" placeholder="Ví dụ: Nguyễn Văn A">
                         </div>
                         <div class="col-6">
-                            <label class="form-label fw-semibold">Chữ cái viết tắt</label>
+                            <label class="form-label fw-semibold">Số điện thoại</label>
+                            <input type="tel" id="regPhone" class="form-control" placeholder="Ví dụ: 0901234567">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email <small class="text-muted">(tự động tạo {username}@restaurant.com nếu để trống)</small></label>
+                        <input type="email" id="regEmail" class="form-control" placeholder="user@restaurant.com">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-7">
+                            <label class="form-label fw-semibold">Mật khẩu <span class="text-danger">*</span></label>
+                            <input type="password" id="regPassword" class="form-control" placeholder="Tối thiểu 3 ký tự" required>
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label fw-semibold">Chữ viết tắt</label>
                             <input type="text" id="regInitials" class="form-control" placeholder="NV1" maxlength="5">
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Phân quyền</label>
+                        <label class="form-label fw-semibold">Vai trò phân quyền</label>
                         <select id="regRole" class="form-select">
-                            <option value="User">Người Dùng Phổ Thông (User)</option>
-                            <option value="Admin">Quản Trị Viên (Admin)</option>
+                            <option value="User" selected>Người Dùng Phổ Thông / Nhân Viên (User)</option>
+                            <option value="Admin">Quản Trị Viên Toàn Quyền (Admin)</option>
                         </select>
                     </div>
+                    <div class="p-2 bg-light rounded border text-muted small">
+                        <i class="fa-solid fa-info-circle text-primary me-1"></i> Tài khoản sau khi đăng ký có thể dùng để đăng nhập đồng thời trên cả Web Dashboard và App Mobile.
+                    </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-primary" onclick="submitRegisterUser()">Tạo Tài Khoản</button>
+                    <button type="button" class="btn btn-primary fw-bold px-4" onclick="submitRegisterUser()"><i class="fa-solid fa-check me-1"></i>Đăng Ký Ngay</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal Đăng Nhập Tùy Chỉnh -->
+    <!-- Modal Đăng Nhập Tài Khoản -->
     <div class="modal fade" id="customLoginModal" tabindex="-1">
         <div class="modal-dialog">
-            <div class="modal-content rounded-4">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Đăng Nhập Tài Khoản</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-content rounded-4 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-right-to-bracket me-2"></i>Đăng Nhập Tài Khoản</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Tên đăng nhập</label>
-                        <input type="text" id="loginUsernameInput" class="form-control" placeholder="admin hoặc user">
+                        <input type="text" id="loginUsernameInput" class="form-control" placeholder="admin hoặc tên đăng nhập của bạn">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Mật khẩu</label>
                         <input type="password" id="loginPasswordInput" class="form-control" placeholder="123456">
                     </div>
+
+                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                        <small class="text-muted fw-bold d-block mb-2"><i class="fa-solid fa-bolt text-warning me-1"></i>Đăng nhập nhanh 1-Click (Tài khoản thử nghiệm):</small>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger flex-fill fw-semibold py-2" onclick="quickLoginInModal('admin', '123456')">
+                                <i class="fa-solid fa-user-shield me-1"></i> Admin (123456)
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary flex-fill fw-semibold py-2" onclick="quickLoginInModal('user', '123456')">
+                                <i class="fa-solid fa-user me-1"></i> User (123456)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="text-center pt-2">
+                        <small class="text-muted">Chưa có tài khoản? <a href="javascript:void(0)" onclick="switchToRegisterModal()" class="text-primary fw-bold text-decoration-none">Đăng ký tài khoản mới ngay</a></small>
+                    </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                    <button type="button" class="btn btn-primary" onclick="submitCustomLogin()">Đăng Nhập</button>
+                    <button type="button" class="btn btn-primary fw-bold px-4" onclick="submitCustomLogin()"><i class="fa-solid fa-right-to-bracket me-1"></i>Đăng Nhập</button>
                 </div>
             </div>
         </div>
@@ -1268,6 +1402,19 @@
             return false;
         }
 
+        function quickLoginInModal(username, password) {
+            document.getElementById('loginUsernameInput').value = username;
+            document.getElementById('loginPasswordInput').value = password;
+            submitCustomLogin();
+        }
+
+        function switchToRegisterModal() {
+            bootstrap.Modal.getInstance(document.getElementById('customLoginModal'))?.hide();
+            setTimeout(() => {
+                new bootstrap.Modal(document.getElementById('registerUserModal')).show();
+            }, 300);
+        }
+
         async function submitCustomLogin() {
             const username = document.getElementById('loginUsernameInput').value.trim();
             const password = document.getElementById('loginPasswordInput').value;
@@ -1276,8 +1423,9 @@
             const ok = await quickLogin(username, password);
             if (ok) {
                 bootstrap.Modal.getInstance(document.getElementById('customLoginModal'))?.hide();
-                alert(`Đăng nhập thành công với vai trò: ${currentUserRole}!`);
-                location.reload();
+                alert(`Đăng nhập thành công! Xin chào ${currentUsername} (${currentUserRole})`);
+                loadOverviewMetrics();
+                loadUsers();
             } else {
                 alert('Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.');
             }
@@ -1530,8 +1678,10 @@
             const category = document.getElementById('newMenuItemCategory').value.trim() || 'Món chính';
             const price = parseFloat(document.getElementById('newMenuItemPrice').value) || 0;
             const description = document.getElementById('newMenuItemDesc').value.trim();
+            const syncToProduct = document.getElementById('syncToCatalogProductCheckbox')?.checked ?? true;
 
-            if (!name) return alert('Vui lòng nhập tên món.');
+            if (!name) return alert('Vui lòng nhập tên món ăn.');
+            if (price <= 0) return alert('Vui lòng nhập đơn giá hợp lệ (> 0 đ).');
 
             try {
                 const res = await apiFetch('/api/menu-items', {
@@ -1539,14 +1689,33 @@
                     body: { name, category, price, description, isAvailable: true }
                 });
                 if (res.ok) {
+                    // Tùy chọn đồng bộ thêm sang Catalog Product
+                    if (syncToProduct) {
+                        try {
+                            await apiFetch('/api/ProductApi', {
+                                method: 'POST',
+                                body: { name, price: price, description, image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600' }
+                            });
+                        } catch (errProd) {
+                            console.warn("Đồng bộ sang Catalog Product bỏ qua hoặc không cần thiết:", errProd);
+                        }
+                    }
+
                     bootstrap.Modal.getInstance(document.getElementById('addMenuItemModal'))?.hide();
                     document.getElementById('newMenuItemName').value = '';
                     document.getElementById('newMenuItemPrice').value = '';
+                    document.getElementById('newMenuItemDesc').value = '';
+                    alert(`Đã thêm món '${name}' (${category} - ${price.toLocaleString('vi-VN')} đ) thành công!`);
                     loadMenuItems();
+                    loadProducts();
                     loadOverviewMetrics();
+                } else {
+                    const err = await res.json();
+                    alert(`Lỗi khi thêm món: ${err.message || 'Không thể lưu món'}`);
                 }
             } catch (e) {
-                alert('Không thể lưu món ăn.');
+                console.error("Lỗi submitAddMenuItem:", e);
+                alert('Không thể lưu món ăn. Vui lòng thử lại.');
             }
         }
 
@@ -1955,29 +2124,48 @@
 
         async function submitRegisterUser() {
             const username = document.getElementById('regUsername').value.trim();
-            const email = document.getElementById('regEmail').value.trim();
+            const fullName = document.getElementById('regFullName')?.value.trim() || username;
+            const phone = document.getElementById('regPhone')?.value.trim() || '';
+            let email = document.getElementById('regEmail')?.value.trim() || '';
             const password = document.getElementById('regPassword').value;
-            const initials = document.getElementById('regInitials').value.trim();
+            let initials = document.getElementById('regInitials')?.value.trim() || '';
             const role = document.getElementById('regRole').value;
 
-            if (!username || !email || !password) return alert('Vui lòng nhập đầy đủ Username, Email và Mật khẩu.');
+            if (!username) return alert('Vui lòng nhập Tên đăng nhập (Username).');
+            if (!password || password.length < 3) return alert('Mật khẩu tối thiểu từ 3 ký tự.');
+
+            if (!email) {
+                email = `${username.toLowerCase()}@restaurant.com`;
+            }
+            if (!initials && fullName) {
+                const parts = fullName.split(' ');
+                initials = parts.map(p => p[0]).join('').toUpperCase().substring(0, 5);
+            }
 
             try {
                 const res = await fetch('/api/Authenticate/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, password, initials, role })
+                    body: JSON.stringify({ username, fullName, phone, email, password, initials, role })
                 });
                 const data = await res.json();
                 if (data.status) {
                     bootstrap.Modal.getInstance(document.getElementById('registerUserModal'))?.hide();
-                    alert(`Tạo tài khoản '${username}' (${role}) thành công!`);
+                    document.getElementById('regUsername').value = '';
+                    if (document.getElementById('regFullName')) document.getElementById('regFullName').value = '';
+                    if (document.getElementById('regPhone')) document.getElementById('regPhone').value = '';
+                    if (document.getElementById('regEmail')) document.getElementById('regEmail').value = '';
+                    document.getElementById('regPassword').value = '';
+                    if (document.getElementById('regInitials')) document.getElementById('regInitials').value = '';
+
+                    alert(`Tạo tài khoản '${username}' (${role} - ${fullName}) thành công! Có thể dùng đăng nhập ngay.`);
                     loadUsers();
                     loadOverviewMetrics();
                 } else {
-                    alert(`Lỗi: ${data.message}`);
+                    alert(`Lỗi: ${data.message || 'Không thể tạo tài khoản'}`);
                 }
             } catch (e) {
+                console.error("Lỗi submitRegisterUser:", e);
                 alert('Không thể tạo tài khoản.');
             }
         }
