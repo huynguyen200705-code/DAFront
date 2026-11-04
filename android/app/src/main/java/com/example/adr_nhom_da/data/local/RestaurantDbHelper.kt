@@ -22,6 +22,9 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         const val TABLE_ORDERS = "orders"
         const val TABLE_ORDER_ITEMS = "order_items"
         const val TABLE_ATTENDANCE = "attendance_records"
+        const val TABLE_ACTIVE_TABLE_ORDERS = "active_table_orders"
+        const val TABLE_SESSION = "app_session"
+        const val TABLE_SYSTEM_SETTINGS = "system_settings"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -123,8 +126,8 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             )
         """.trimIndent())
 
-        // 8. Create Attendance Records
-        createAttendanceTableIfNotExists(db)
+        // 8. Create Attendance, Active Table Orders, and Session tables
+        createDynamicTablesIfNotExists(db)
 
         // Seed initial data
         seedInitialData(db)
@@ -133,11 +136,11 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     override fun onOpen(db: SQLiteDatabase) {
         super.onOpen(db)
-        createAttendanceTableIfNotExists(db)
+        createDynamicTablesIfNotExists(db)
         seedSampleOrdersIfEmpty(db)
     }
 
-    private fun createAttendanceTableIfNotExists(db: SQLiteDatabase) {
+    private fun createDynamicTablesIfNotExists(db: SQLiteDatabase) {
         db.execSQL("""
             CREATE TABLE IF NOT EXISTS $TABLE_ATTENDANCE (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,6 +153,90 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 note TEXT
             )
         """.trimIndent())
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS $TABLE_ACTIVE_TABLE_ORDERS (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                table_id INTEGER NOT NULL,
+                menu_item_id INTEGER NOT NULL,
+                menu_item_name TEXT NOT NULL,
+                price REAL NOT NULL,
+                quantity INTEGER NOT NULL,
+                note TEXT
+            )
+        """.trimIndent())
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS $TABLE_SESSION (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                phone TEXT,
+                role TEXT NOT NULL,
+                is_logged_in INTEGER DEFAULT 1,
+                last_login INTEGER NOT NULL
+            )
+        """.trimIndent())
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS $TABLE_SYSTEM_SETTINGS (
+                id INTEGER PRIMARY KEY DEFAULT 1,
+                restaurant_name TEXT NOT NULL,
+                address TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                email TEXT,
+                tax_id TEXT,
+                vat_percent REAL DEFAULT 8.0,
+                service_fee_percent REAL DEFAULT 5.0,
+                currency TEXT DEFAULT 'VNĐ',
+                wifi_name TEXT,
+                wifi_pass TEXT,
+                realtime_broker TEXT DEFAULT 'broker.hivemq.com',
+                api_base_url TEXT DEFAULT 'http://10.15.187.151:5276/api/'
+            )
+        """.trimIndent())
+
+        try {
+            val settingsCursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_SYSTEM_SETTINGS", null)
+            var settingsCount = 0
+            if (settingsCursor.moveToFirst()) {
+                settingsCount = settingsCursor.getInt(0)
+            }
+            settingsCursor.close()
+            if (settingsCount == 0) {
+                db.execSQL("""
+                    INSERT INTO $TABLE_SYSTEM_SETTINGS (id, restaurant_name, address, phone, email, tax_id, vat_percent, service_fee_percent, currency, wifi_name, wifi_pass, realtime_broker, api_base_url)
+                    VALUES (1, 'Golden Spoon Restaurant & Lounge', '123 Nguyễn Huệ, Quận 1, TP.HCM', '0901234567', 'goldenspoon@gmail.com', '0312345678', 8.0, 5.0, 'VNĐ', 'GoldenSpoon_5G', 'GoldenSpoon2026', 'broker.hivemq.com', 'http://10.15.187.151:5276/api/')
+                """.trimIndent())
+            }
+
+            // Seed active orders for Bàn 202 if table has no active orders
+            val activeCursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_ACTIVE_TABLE_ORDERS", null)
+            var activeCount = 0
+            if (activeCursor.moveToFirst()) {
+                activeCount = activeCursor.getInt(0)
+            }
+            activeCursor.close()
+            if (activeCount == 0) {
+                db.execSQL("INSERT INTO $TABLE_ACTIVE_TABLE_ORDERS (table_id, menu_item_id, menu_item_name, price, quantity, note) VALUES (5, 3, 'Lẩu thái hải sản', 290000.0, 1, 'Cay vừa')")
+                db.execSQL("INSERT INTO $TABLE_ACTIVE_TABLE_ORDERS (table_id, menu_item_id, menu_item_name, price, quantity, note) VALUES (5, 4, 'Bò lúc lắc hạt điều', 165000.0, 2, 'Chín vừa')")
+                db.execSQL("INSERT INTO $TABLE_ACTIVE_TABLE_ORDERS (table_id, menu_item_id, menu_item_name, price, quantity, note) VALUES (5, 6, 'Trà đào cam sả', 45000.0, 4, 'Ít đá')")
+            }
+
+            // Seed initial session as Admin if empty
+            val sessionCursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_SESSION", null)
+            var sessionCount = 0
+            if (sessionCursor.moveToFirst()) {
+                sessionCount = sessionCursor.getInt(0)
+            }
+            sessionCursor.close()
+            if (sessionCount == 0) {
+                db.execSQL("INSERT INTO $TABLE_SESSION (id, user_id, username, full_name, phone, role, is_logged_in, last_login) VALUES (1, 1, 'admin', 'Quản Trị Viên', '0901234567', 'ADMIN', 1, ${System.currentTimeMillis()})")
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
     }
 
     private fun seedSampleOrdersIfEmpty(db: SQLiteDatabase) {

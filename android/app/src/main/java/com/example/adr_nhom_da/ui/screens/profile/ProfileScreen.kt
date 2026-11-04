@@ -293,7 +293,12 @@ fun ProfileScreen(
                 Button(
                     onClick = {
                         if (newPassword.isNotBlank()) {
-                            successMessage = "Đổi mật khẩu thành công!"
+                            val success = repository.updateUserPassword(currentUser.id, newPassword)
+                            if (success) {
+                                successMessage = "Đổi mật khẩu thành công!"
+                            } else {
+                                successMessage = "Lỗi khi cập nhật mật khẩu!"
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryRed)

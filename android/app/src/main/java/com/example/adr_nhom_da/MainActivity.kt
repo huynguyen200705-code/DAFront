@@ -24,17 +24,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = RestaurantRepository(this)
+        val savedUser = repository.getSavedLoggedInUser()
 
         setContent {
             AdrNhomDaTheme {
-                var currentScreen by remember { mutableStateOf(ScreenState.LOGIN) }
-                var currentUser by remember { mutableStateOf<User?>(null) }
+                var currentScreen by remember { mutableStateOf(if (savedUser != null) ScreenState.MAIN_APP else ScreenState.LOGIN) }
+                var currentUser by remember { mutableStateOf(savedUser) }
 
                 when (currentScreen) {
                     ScreenState.LOGIN -> {
                         LoginScreen(
                             repository = repository,
                             onLoginSuccess = { user ->
+                                repository.saveLoggedInUser(user)
                                 currentUser = user
                                 currentScreen = ScreenState.MAIN_APP
                             },
@@ -62,6 +64,7 @@ class MainActivity : ComponentActivity() {
                                 currentUser = user,
                                 repository = repository,
                                 onLogout = {
+                                    repository.clearLoggedInUser()
                                     currentUser = null
                                     currentScreen = ScreenState.LOGIN
                                 }

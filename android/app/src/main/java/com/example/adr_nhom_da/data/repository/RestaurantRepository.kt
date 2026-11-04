@@ -2,6 +2,7 @@ package com.example.adr_nhom_da.data.repository
 
 import android.content.ContentValues
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import android.util.Log
 import com.example.adr_nhom_da.data.local.RestaurantDbHelper
 import com.example.adr_nhom_da.data.model.*
@@ -24,6 +25,9 @@ class RestaurantRepository(context: Context) {
     }
 
     init {
+        // Load active table orders from SQLite
+        loadActiveOrdersFromDb()
+
         // Initialize Web API Client with .env config
         RestaurantApiClient.init(context)
 
@@ -31,6 +35,60 @@ class RestaurantRepository(context: Context) {
         RealtimeSyncManager.start(context)
         RealtimeSyncManager.onRemoteEventReceived = { type, payload, message ->
             handleRemoteSyncEvent(type, payload, message)
+        }
+    }
+
+    // --- USER SESSION PERSISTENCE ---
+    fun saveLoggedInUser(user: User) {
+        try {
+            val db = dbHelper.writableDatabase
+            val cv = ContentValues().apply {
+                put("id", 1)
+                put("user_id", user.id)
+                put("username", user.username)
+                put("full_name", user.fullName)
+                put("phone", user.phone)
+                put("role", user.role.name)
+                put("is_logged_in", 1)
+                put("last_login", System.currentTimeMillis())
+            }
+            db.insertWithOnConflict(RestaurantDbHelper.TABLE_SESSION, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error saving session", e)
+        }
+    }
+
+    fun getSavedLoggedInUser(): User? {
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${RestaurantDbHelper.TABLE_SESSION} WHERE id=1 AND is_logged_in=1",
+                null
+            )
+            var user: User? = null
+            if (cursor.moveToFirst()) {
+                user = User(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow("user_id")),
+                    username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
+                    password = "",
+                    fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
+                    phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
+                    role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role")))
+                )
+            }
+            cursor.close()
+            user
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun clearLoggedInUser() {
+        try {
+            val db = dbHelper.writableDatabase
+            db.delete(RestaurantDbHelper.TABLE_SESSION, "id=1", null)
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error clearing session", e)
         }
     }
 
@@ -51,6 +109,7 @@ class RestaurantRepository(context: Context) {
                 phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
                 role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role")))
             )
+            saveLoggedInUser(user)
         }
         cursor.close()
         return user
@@ -67,6 +126,49 @@ class RestaurantRepository(context: Context) {
         }
         val result = db.insert(RestaurantDbHelper.TABLE_USERS, null, values)
         return result != -1L
+    }
+
+    fun updateUserPassword(userId: Long, newPass: String): Boolean {
+        val db = dbHelper.writableDatabase
+        val cv = ContentValues().apply {
+            put("password", newPass)
+        }
+        val success = db.update(RestaurantDbHelper.TABLE_USERS, cv, "id=?", arrayOf(userId.toString())) > 0
+        if (success) {
+            notifyDataChanged("password_updated")
+        }
+        return success
+    }
+
+    // --- SYSTEM SETTINGS ---
+    fun getSystemSettings(): Map<String, String> {
+        val map = mutableMapOf<String, String>()
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_SYSTEM_SETTINGS} LIMIT 1", null)
+            if (cursor.moveToFirst()) {
+                for (col in cursor.columnNames) {
+                    map[col] = cursor.getString(cursor.getColumnIndexOrThrow(col)) ?: ""
+                }
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error reading settings", e)
+        }
+        return map
+    }
+
+    fun updateSystemSettings(settings: Map<String, String>): Boolean {
+        return try {
+            val db = dbHelper.writableDatabase
+            val cv = ContentValues()
+            for ((key, value) in settings) {
+                cv.put(key, value)
+            }
+            db.update(RestaurantDbHelper.TABLE_SYSTEM_SETTINGS, cv, "id=1", null) > 0
+        } catch (e: Exception) {
+            false
+        }
     }
 
     // --- CUSTOMERS ---
@@ -527,21 +629,89 @@ class RestaurantRepository(context: Context) {
         return success
     }
 
-    // --- ACTIVE TABLE ORDERS IN-MEMORY ---
+    // --- ACTIVE TABLE ORDERS PERSISTENT (SQLITE + RAM) ---
     private val activeTableOrders = mutableMapOf<Long, MutableList<OrderItem>>()
 
+    fun loadActiveOrdersFromDb() {
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS}", null)
+            activeTableOrders.clear()
+            if (cursor.moveToFirst()) {
+                do {
+                    val tableId = cursor.getLong(cursor.getColumnIndexOrThrow("table_id"))
+                    val item = OrderItem(
+                        menuItemId = cursor.getLong(cursor.getColumnIndexOrThrow("menu_item_id")),
+                        menuItemName = cursor.getString(cursor.getColumnIndexOrThrow("menu_item_name")),
+                        price = cursor.getDouble(cursor.getColumnIndexOrThrow("price")),
+                        quantity = cursor.getInt(cursor.getColumnIndexOrThrow("quantity")),
+                        note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+                    )
+                    activeTableOrders.getOrPut(tableId) { mutableListOf() }.add(item)
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error loading active orders from db", e)
+        }
+    }
+
     fun getActiveOrderForTable(tableId: Long): MutableList<OrderItem> {
+        if (!activeTableOrders.containsKey(tableId)) {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS} WHERE table_id=?",
+                arrayOf(tableId.toString())
+            )
+            val list = mutableListOf<OrderItem>()
+            if (cursor.moveToFirst()) {
+                do {
+                    list.add(
+                        OrderItem(
+                            menuItemId = cursor.getLong(cursor.getColumnIndexOrThrow("menu_item_id")),
+                            menuItemName = cursor.getString(cursor.getColumnIndexOrThrow("menu_item_name")),
+                            price = cursor.getDouble(cursor.getColumnIndexOrThrow("price")),
+                            quantity = cursor.getInt(cursor.getColumnIndexOrThrow("quantity")),
+                            note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+                        )
+                    )
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+            activeTableOrders[tableId] = list
+        }
         return activeTableOrders[tableId]?.toMutableList() ?: mutableListOf()
     }
 
     fun saveActiveOrderForTable(tableId: Long, items: List<OrderItem>, broadcast: Boolean = true) {
         val table = getTableById(tableId)
-        if (items.isNotEmpty()) {
-            activeTableOrders[tableId] = items.toMutableList()
-            updateTableStatus(tableId, TableStatus.DANG_PHUC_VU, broadcast = false)
-        } else {
-            activeTableOrders.remove(tableId)
-            updateTableStatus(tableId, TableStatus.TRONG, broadcast = false)
+        val db = dbHelper.writableDatabase
+        db.beginTransaction()
+        try {
+            // Delete old active items in SQL
+            db.delete(RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS, "table_id=?", arrayOf(tableId.toString()))
+
+            if (items.isNotEmpty()) {
+                for (item in items) {
+                    val cv = ContentValues().apply {
+                        put("table_id", tableId)
+                        put("menu_item_id", item.menuItemId)
+                        put("menu_item_name", item.menuItemName)
+                        put("price", item.price)
+                        put("quantity", item.quantity)
+                        put("note", item.note)
+                    }
+                    db.insert(RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS, null, cv)
+                }
+                activeTableOrders[tableId] = items.toMutableList()
+                updateTableStatus(tableId, TableStatus.DANG_PHUC_VU, broadcast = false)
+            } else {
+                activeTableOrders.remove(tableId)
+                updateTableStatus(tableId, TableStatus.TRONG, broadcast = false)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
         notifyDataChanged("active_order")
 
@@ -571,6 +741,12 @@ class RestaurantRepository(context: Context) {
     }
 
     fun clearActiveOrderForTable(tableId: Long) {
+        try {
+            val db = dbHelper.writableDatabase
+            db.delete(RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS, "table_id=?", arrayOf(tableId.toString()))
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error clearing active order", e)
+        }
         activeTableOrders.remove(tableId)
     }
 
@@ -607,7 +783,8 @@ class RestaurantRepository(context: Context) {
                 db.insert(RestaurantDbHelper.TABLE_ORDER_ITEMS, null, cvItem)
             }
 
-            // Clear active table order in memory
+            // Clear active table order in SQLite and memory
+            db.delete(RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS, "table_id=?", arrayOf(order.tableId.toString()))
             activeTableOrders.remove(order.tableId)
 
             // Update Table Status to TRONG
@@ -954,7 +1131,19 @@ class RestaurantRepository(context: Context) {
                     }
 
                     val db = dbHelper.writableDatabase
+                    db.delete(RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS, "table_id=?", arrayOf(tableId.toString()))
                     if (items.isNotEmpty()) {
+                        for (item in items) {
+                            val cvItem = ContentValues().apply {
+                                put("table_id", tableId)
+                                put("menu_item_id", item.menuItemId)
+                                put("menu_item_name", item.menuItemName)
+                                put("price", item.price)
+                                put("quantity", item.quantity)
+                                put("note", item.note)
+                            }
+                            db.insert(RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS, null, cvItem)
+                        }
                         activeTableOrders[tableId] = items
                         val cv = ContentValues().apply { put("status", TableStatus.DANG_PHUC_VU.name) }
                         if (tableName.isNotBlank()) {
@@ -1026,6 +1215,7 @@ class RestaurantRepository(context: Context) {
                             put("current_order_id", null as Long?)
                         }
                         db.update(RestaurantDbHelper.TABLE_TABLES, cvTable, "id=?", arrayOf(tableId.toString()))
+                        db.delete(RestaurantDbHelper.TABLE_ACTIVE_TABLE_ORDERS, "table_id=?", arrayOf(tableId.toString()))
                         activeTableOrders.remove(tableId)
 
                         db.setTransactionSuccessful()
