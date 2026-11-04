@@ -68,7 +68,7 @@ public class RestaurantSyncController : ControllerBase
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            int tablesAdded = 0, menuAdded = 0, empAdded = 0, custAdded = 0, attAdded = 0, ordersAdded = 0;
+            int tablesAdded = 0, menuAdded = 0, empAdded = 0, custAdded = 0, attAdded = 0, ordersAdded = 0, usersAdded = 0;
 
             // 1. Lưu thông tin Bàn ăn
             if (request.Tables != null && request.Tables.Any())
@@ -266,10 +266,32 @@ public class RestaurantSyncController : ControllerBase
                 }
             }
 
+            // 7. Lưu thông tin Người dùng & Tài khoản
+            if (request.Users != null && request.Users.Any())
+            {
+                foreach (var u in request.Users)
+                {
+                    if (string.IsNullOrWhiteSpace(u.Username)) continue;
+                    var existingUser = await _context.RestaurantUsers.FirstOrDefaultAsync(x => x.Username.ToLower() == u.Username.ToLower());
+                    if (existingUser == null)
+                    {
+                        _context.RestaurantUsers.Add(new RestaurantUser
+                        {
+                            Username = u.Username.Trim(),
+                            Password = u.Password ?? "123",
+                            FullName = !string.IsNullOrWhiteSpace(u.FullName) ? u.FullName.Trim() : u.Username.Trim(),
+                            Phone = u.Phone ?? "",
+                            Role = (u.Role ?? "USER").ToUpper()
+                        });
+                        usersAdded++;
+                    }
+                }
+            }
+
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            var summary = $"Đã lưu toàn bộ thông tin vào SQL: {tablesAdded} bàn mới, {menuAdded} món mới, {custAdded} khách hàng, {empAdded} nhân viên, {attAdded} chấm công, {ordersAdded} hóa đơn";
+            var summary = $"Đã lưu toàn bộ thông tin vào SQL: {tablesAdded} bàn mới, {menuAdded} món mới, {custAdded} khách hàng, {empAdded} nhân viên, {attAdded} chấm công, {ordersAdded} hóa đơn, {usersAdded} tài khoản";
 
             await _notificationService.RecordActivityAsync(new AppActivity
             {
@@ -672,6 +694,7 @@ public class SyncUploadRequest
     public List<Employee>? Employees { get; set; }
     public List<AttendanceRecord>? Attendance { get; set; }
     public List<Order>? Orders { get; set; }
+    public List<RestaurantUser>? Users { get; set; }
 }
 
 

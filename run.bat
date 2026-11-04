@@ -45,9 +45,9 @@ echo   SignalR Realtime Hub : http://localhost:5276/hubs/notifications
 echo ===============================================================================
 echo.
 echo   DUONG DAN KET NOI TU DIEN THOAI / APP (CUNG MANG WI-FI):
-echo     http://10.168.222.213:5276/api/
-echo     http://26.38.230.253:5276/api/
-echo     http://10.0.2.2:5276/api/ (Dung tren Android Emulator)
+echo     http://192.168.0.172:5276/api/  (Wi-Fi Hien Tai)
+echo     http://26.38.230.253:5276/api/  (Radmin VPN)
+echo     http://10.0.2.2:5276/api/        (Dung tren Android Emulator)
 echo ===============================================================================
 echo.
 echo [*] Dang mo trinh duyet Web Admin Dashboard...
