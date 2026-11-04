@@ -50,6 +50,8 @@ echo     http://26.38.230.253:5276/api/
 echo     http://10.0.2.2:5276/api/ (Dung tren Android Emulator)
 echo ===============================================================================
 echo.
+echo [*] Dang mo trinh duyet Web Admin Dashboard...
+start "" http://localhost:5276/
 echo [*] Dang khoi dong Web API server...
 echo.
 
