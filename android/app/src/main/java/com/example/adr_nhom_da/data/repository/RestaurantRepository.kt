@@ -262,6 +262,7 @@ class RestaurantRepository(context: Context) {
                 }
                 RealtimeSyncManager.broadcast("USER_FACE_ID_UPDATED", payload, "Liên kết Face ID thành công cho @$username")
                 syncRetainedCloudState()
+                getUserByUsername(username)?.let { WebApiSyncEngine.syncUserAsync(it) }
             }
         }
         return updated
@@ -416,6 +417,7 @@ class RestaurantRepository(context: Context) {
                 }
                 RealtimeSyncManager.broadcast("USER_ROLE_UPDATED", payload, "Cập nhật quyền tài khoản @${user.username} thành ${if (newRole == UserRole.ADMIN) "Quản Trị (ADMIN)" else "Nhân Viên (STAFF)"}")
                 syncRetainedCloudState()
+                WebApiSyncEngine.syncUserAsync(user.copy(role = newRole))
             }
         }
         return success
@@ -1545,6 +1547,7 @@ class RestaurantRepository(context: Context) {
             }
             RealtimeSyncManager.broadcast("ATTENDANCE_RECORD", payload, msg)
             syncRetainedCloudState()
+            WebApiSyncEngine.syncAttendanceAsync(resultRecord)
         }
 
         return resultRecord
@@ -2048,231 +2051,251 @@ class RestaurantRepository(context: Context) {
                 }
 
                 "RESPONSE_FULL_SYNC" -> {
-                    val db = dbHelper.writableDatabase
-                    db.beginTransaction()
-                    try {
-                        // 1. Synchronize Users (Admins, Managers, Staff)
-                        val usersArr = payload.optJSONArray("users")
-                        if (usersArr != null) {
-                            for (i in 0 until usersArr.length()) {
-                                val obj = usersArr.getJSONObject(i)
-                                val fid = obj.optString("faceIdData")
-                                val cv = ContentValues().apply {
-                                    put("username", obj.optString("username"))
-                                    put("password", obj.optString("password"))
-                                    put("full_name", obj.optString("fullName"))
-                                    put("phone", obj.optString("phone", ""))
-                                    put("role", obj.optString("role", "USER"))
-                                    if (fid.isNotBlank()) {
-                                        put("face_id_data", fid)
-                                    } else {
-                                        putNull("face_id_data")
-                                    }
-                                }
-                                db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
-                            }
-
-                            // Keep current user session updated
-                            val saved = getSavedLoggedInUser()
-                            if (saved != null) {
-                                val updatedUser = getUserByUsername(saved.username)
-                                if (updatedUser != null) {
-                                    saveLoggedInUser(updatedUser)
-                                }
-                            }
-                        }
-
-                        // 2. Synchronize Menu Items
-                        val menuArr = payload.optJSONArray("menuItems")
-                        if (menuArr != null) {
-                            for (i in 0 until menuArr.length()) {
-                                val obj = menuArr.getJSONObject(i)
-                                val name = obj.optString("name")
-                                val cv = ContentValues().apply {
-                                    put("name", name)
-                                    put("category", obj.optString("category", "Món chính"))
-                                    put("price", obj.optDouble("price", 0.0))
-                                    put("description", obj.optString("description", ""))
-                                    put("is_available", if (obj.optBoolean("isAvailable", true)) 1 else 0)
-                                }
-                                val updated = db.update(RestaurantDbHelper.TABLE_MENU_ITEMS, cv, "name=?", arrayOf(name))
-                                if (updated == 0) {
-                                    db.insert(RestaurantDbHelper.TABLE_MENU_ITEMS, null, cv)
-                                }
-                            }
-                        }
-
-                        // 3. Synchronize Employees
-                        val empArr = payload.optJSONArray("employees")
-                        if (empArr != null) {
-                            for (i in 0 until empArr.length()) {
-                                val obj = empArr.getJSONObject(i)
-                                val name = obj.optString("name")
-                                val phone = obj.optString("phone")
-                                val cv = ContentValues().apply {
-                                    put("name", name)
-                                    put("phone", phone)
-                                    put("position", obj.optString("position", "Nhân viên"))
-                                    put("tier", obj.optString("tier", "CHINH_THUC"))
-                                    put("contract_type", obj.optString("contractType", "MONTHLY"))
-                                    put("hourly_rate", obj.optDouble("hourlyRate", 25000.0))
-                                    put("monthly_salary", obj.optDouble("monthlySalary", 8000000.0))
-                                    put("worked_hours", obj.optDouble("workedHours", 0.0))
-                                    put("worked_days", obj.optDouble("workedDays", 0.0))
-                                    put("bonus", obj.optDouble("bonus", 0.0))
-                                    put("penalty", obj.optDouble("penalty", 0.0))
-                                }
-                                val updated = db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=? OR name=?", arrayOf(phone, name))
-                                if (updated == 0) {
-                                    db.insert(RestaurantDbHelper.TABLE_EMPLOYEES, null, cv)
-                                }
-                            }
-                        }
-
-                        // 4. Synchronize Attendance Records
-                        val attArr = payload.optJSONArray("attendance")
-                        if (attArr != null) {
-                            for (i in 0 until attArr.length()) {
-                                val obj = attArr.getJSONObject(i)
-                                val empName = obj.optString("employeeName")
-                                val ts = obj.optLong("timestamp")
-                                val check = db.rawQuery(
-                                    "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_name=? AND timestamp=?",
-                                    arrayOf(empName, ts.toString())
-                                )
-                                var exists = false
-                                if (check.moveToFirst()) exists = check.getInt(0) > 0
-                                check.close()
-
-                                if (!exists) {
-                                    val cv = ContentValues().apply {
-                                        put("employee_id", obj.optLong("employeeId"))
-                                        put("employee_name", empName)
-                                        put("type", obj.optString("type"))
-                                        put("method", obj.optString("method"))
-                                        put("timestamp", ts)
-                                        put("duration_hours", obj.optDouble("durationHours", 0.0))
-                                        put("note", obj.optString("note", ""))
-                                    }
-                                    db.insert(RestaurantDbHelper.TABLE_ATTENDANCE, null, cv)
-                                }
-                            }
-                        }
-
-                        // 5. Synchronize Customers
-                        val custArr = payload.optJSONArray("customers")
-                        if (custArr != null) {
-                            for (i in 0 until custArr.length()) {
-                                val obj = custArr.getJSONObject(i)
-                                val phone = obj.optString("phone")
-                                val cv = ContentValues().apply {
-                                    put("name", obj.optString("name"))
-                                    put("phone", phone)
-                                    put("email", obj.optString("email", ""))
-                                    put("total_spent", obj.optDouble("totalSpent", 0.0))
-                                    put("loyalty_points", obj.optInt("loyaltyPoints", 0))
-                                }
-                                val updated = db.update(RestaurantDbHelper.TABLE_CUSTOMERS, cv, "phone=?", arrayOf(phone))
-                                if (updated == 0) {
-                                    db.insert(RestaurantDbHelper.TABLE_CUSTOMERS, null, cv)
-                                }
-                            }
-                        }
-
-                        // 6. Synchronize Tables
-                        val tablesArr = payload.optJSONArray("tables")
-                        if (tablesArr != null) {
-                            for (i in 0 until tablesArr.length()) {
-                                val obj = tablesArr.getJSONObject(i)
-                                val name = obj.optString("name")
-                                val cv = ContentValues().apply {
-                                    put("name", name)
-                                    put("floor", obj.optString("floor", "Tầng 1"))
-                                    put("seats", obj.optInt("seats", 4))
-                                    put("status", obj.optString("status", "TRONG"))
-                                }
-                                val updated = db.update(RestaurantDbHelper.TABLE_TABLES, cv, "name=?", arrayOf(name))
-                                if (updated == 0) {
-                                    db.insert(RestaurantDbHelper.TABLE_TABLES, null, cv)
-                                }
-                            }
-                        }
-
-                        // 7. Synchronize Settings
-                        val settingsObj = payload.optJSONObject("settings")
-                        if (settingsObj != null) {
-                            val cv = ContentValues()
-                            val keys = settingsObj.keys()
-                            while (keys.hasNext()) {
-                                val k = keys.next()
-                                cv.put(k, settingsObj.optString(k))
-                            }
-                            if (cv.size() > 0) {
-                                db.update(RestaurantDbHelper.TABLE_SYSTEM_SETTINGS, cv, "id=1", null)
-                            }
-                        }
-
-                        // 8. Synchronize Completed Orders (Revenue data)
-                        val ordersArr = payload.optJSONArray("orders")
-                        if (ordersArr != null) {
-                            for (i in 0 until ordersArr.length()) {
-                                val oObj = ordersArr.getJSONObject(i)
-                                val oTime = oObj.optLong("timestamp")
-                                val oTable = oObj.optString("tableName")
-                                val check = db.rawQuery(
-                                    "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ORDERS} WHERE table_name=? AND timestamp=?",
-                                    arrayOf(oTable, oTime.toString())
-                                )
-                                var exists = false
-                                if (check.moveToFirst()) exists = check.getInt(0) > 0
-                                check.close()
-
-                                if (!exists) {
-                                    val cv = ContentValues().apply {
-                                        put("table_id", oObj.optLong("tableId"))
-                                        put("table_name", oTable)
-                                        val cId = oObj.optLong("customerId")
-                                        if (cId > 0) put("customer_id", cId)
-                                        put("customer_name", oObj.optString("customerName", "Khách vãng lai"))
-                                        put("customer_tier_name", oObj.optString("customerTierName", "Bậc Đồng"))
-                                        put("employee_id", oObj.optLong("employeeId"))
-                                        put("employee_name", oObj.optString("employeeName", "Nhân viên"))
-                                        put("subtotal", oObj.optDouble("subtotal", 0.0))
-                                        put("discount_percent", oObj.optDouble("discountPercent", 0.0))
-                                        put("payment_method", oObj.optString("paymentMethod", "Tiền mặt"))
-                                        put("status", oObj.optString("status", "COMPLETED"))
-                                        put("timestamp", oTime)
-                                    }
-                                    val newOrderId = db.insert(RestaurantDbHelper.TABLE_ORDERS, null, cv)
-                                    val itemsArr = oObj.optJSONArray("items")
-                                    if (itemsArr != null && newOrderId != -1L) {
-                                        for (j in 0 until itemsArr.length()) {
-                                            val itObj = itemsArr.getJSONObject(j)
-                                            val itCv = ContentValues().apply {
-                                                put("order_id", newOrderId)
-                                                put("menu_item_id", itObj.optLong("menuItemId"))
-                                                put("menu_item_name", itObj.optString("menuItemName"))
-                                                put("price", itObj.optDouble("price", 0.0))
-                                                put("quantity", itObj.optInt("quantity", 1))
-                                                put("note", itObj.optString("note", ""))
-                                            }
-                                            db.insert(RestaurantDbHelper.TABLE_ORDER_ITEMS, null, itCv)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        db.setTransactionSuccessful()
-                    } finally {
-                        db.endTransaction()
-                    }
-                    loadActiveOrdersFromDb()
-                    notifyDataChanged("remote_full_sync_completed")
+                    applyFullSyncSnapshot(payload)
                 }
             }
         } catch (e: Exception) {
             Log.e("RestaurantRepository", "Error handling remote sync event", e)
+        }
+    }
+
+    /**
+     * Đồng bộ và gộp toàn bộ bản chụp CSDL (từ MQTT Cloud Broker hoặc Web API) vào SQLite cục bộ
+     */
+    fun applyFullSyncSnapshot(payload: JSONObject, notify: Boolean = true) {
+        val db = dbHelper.writableDatabase
+        db.beginTransaction()
+        try {
+            // 1. Synchronize Users (Admins, Managers, Staff)
+            val usersArr = payload.optJSONArray("users") ?: payload.optJSONArray("data")
+            if (usersArr != null) {
+                for (i in 0 until usersArr.length()) {
+                    val obj = usersArr.getJSONObject(i)
+                    val username = obj.optString("username", "")
+                    if (username.isBlank()) continue
+
+                    val fid = obj.optString("faceIdData", "")
+                    val existing = getUserByUsername(username)
+                    val existingFid = existing?.faceIdData
+                    val password = obj.optString("password", "")
+
+                    val cv = ContentValues().apply {
+                        put("username", username)
+                        put("password", if (password.isNotBlank()) password else (existing?.password ?: "123456"))
+                        put("full_name", obj.optString("fullName", obj.optString("full_name", username)))
+                        put("phone", obj.optString("phone", existing?.phone ?: ""))
+                        put("role", obj.optString("role", existing?.role?.name ?: "USER"))
+                        if (fid.isNotBlank()) {
+                            put("face_id_data", fid)
+                        } else if (!existingFid.isNullOrBlank()) {
+                            put("face_id_data", existingFid)
+                        } else {
+                            putNull("face_id_data")
+                        }
+                    }
+                    db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+                }
+
+                // Keep current user session updated
+                val saved = getSavedLoggedInUser()
+                if (saved != null) {
+                    val updatedUser = getUserByUsername(saved.username)
+                    if (updatedUser != null) {
+                        saveLoggedInUser(updatedUser)
+                    }
+                }
+            }
+
+            // 2. Synchronize Menu Items
+            val menuArr = payload.optJSONArray("menuItems")
+            if (menuArr != null) {
+                for (i in 0 until menuArr.length()) {
+                    val obj = menuArr.getJSONObject(i)
+                    val name = obj.optString("name")
+                    if (name.isBlank()) continue
+                    val cv = ContentValues().apply {
+                        put("name", name)
+                        put("category", obj.optString("category", "Món chính"))
+                        put("price", obj.optDouble("price", 0.0))
+                        put("description", obj.optString("description", ""))
+                        put("is_available", if (obj.optBoolean("isAvailable", true)) 1 else 0)
+                    }
+                    val updated = db.update(RestaurantDbHelper.TABLE_MENU_ITEMS, cv, "name=?", arrayOf(name))
+                    if (updated == 0) {
+                        db.insert(RestaurantDbHelper.TABLE_MENU_ITEMS, null, cv)
+                    }
+                }
+            }
+
+            // 3. Synchronize Employees
+            val empArr = payload.optJSONArray("employees")
+            if (empArr != null) {
+                for (i in 0 until empArr.length()) {
+                    val obj = empArr.getJSONObject(i)
+                    val name = obj.optString("name")
+                    val phone = obj.optString("phone")
+                    if (name.isBlank() && phone.isBlank()) continue
+                    val cv = ContentValues().apply {
+                        put("name", name)
+                        put("phone", phone)
+                        put("position", obj.optString("position", obj.optString("role", "Nhân viên")))
+                        put("tier", obj.optString("tier", "CHINH_THUC"))
+                        put("contract_type", obj.optString("contractType", "MONTHLY"))
+                        put("hourly_rate", obj.optDouble("hourlyRate", 25000.0))
+                        put("monthly_salary", obj.optDouble("monthlySalary", 8000000.0))
+                        put("worked_hours", obj.optDouble("workedHours", 0.0))
+                        put("worked_days", obj.optDouble("workedDays", 0.0))
+                        put("bonus", obj.optDouble("bonus", 0.0))
+                        put("penalty", obj.optDouble("penalty", 0.0))
+                    }
+                    val updated = db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=? OR name=?", arrayOf(phone, name))
+                    if (updated == 0) {
+                        db.insert(RestaurantDbHelper.TABLE_EMPLOYEES, null, cv)
+                    }
+                }
+            }
+
+            // 4. Synchronize Attendance Records
+            val attArr = payload.optJSONArray("attendance")
+            if (attArr != null) {
+                for (i in 0 until attArr.length()) {
+                    val obj = attArr.getJSONObject(i)
+                    val empName = obj.optString("employeeName")
+                    val ts = obj.optLong("timestamp", System.currentTimeMillis())
+                    val check = db.rawQuery(
+                        "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_name=? AND timestamp=?",
+                        arrayOf(empName, ts.toString())
+                    )
+                    var exists = false
+                    if (check.moveToFirst()) exists = check.getInt(0) > 0
+                    check.close()
+
+                    if (!exists) {
+                        val cv = ContentValues().apply {
+                            put("employee_id", obj.optLong("employeeId", 1))
+                            put("employee_name", empName)
+                            put("type", obj.optString("type", "CHECK_IN"))
+                            put("method", obj.optString("method", "FACE_ID"))
+                            put("timestamp", ts)
+                            put("duration_hours", obj.optDouble("durationHours", 0.0))
+                            put("note", obj.optString("note", ""))
+                        }
+                        db.insert(RestaurantDbHelper.TABLE_ATTENDANCE, null, cv)
+                    }
+                }
+            }
+
+            // 5. Synchronize Customers
+            val custArr = payload.optJSONArray("customers")
+            if (custArr != null) {
+                for (i in 0 until custArr.length()) {
+                    val obj = custArr.getJSONObject(i)
+                    val phone = obj.optString("phone")
+                    val cv = ContentValues().apply {
+                        put("name", obj.optString("name"))
+                        put("phone", phone)
+                        put("email", obj.optString("email", ""))
+                        put("total_spent", obj.optDouble("totalSpent", 0.0))
+                        put("loyalty_points", obj.optInt("loyaltyPoints", 0))
+                    }
+                    val updated = db.update(RestaurantDbHelper.TABLE_CUSTOMERS, cv, "phone=?", arrayOf(phone))
+                    if (updated == 0) {
+                        db.insert(RestaurantDbHelper.TABLE_CUSTOMERS, null, cv)
+                    }
+                }
+            }
+
+            // 6. Synchronize Tables
+            val tablesArr = payload.optJSONArray("tables")
+            if (tablesArr != null) {
+                for (i in 0 until tablesArr.length()) {
+                    val obj = tablesArr.getJSONObject(i)
+                    val name = obj.optString("name")
+                    val cv = ContentValues().apply {
+                        put("name", name)
+                        put("floor", obj.optString("floor", "Tầng 1"))
+                        put("seats", obj.optInt("seats", obj.optInt("capacity", 4)))
+                        put("status", obj.optString("status", "TRONG"))
+                    }
+                    val updated = db.update(RestaurantDbHelper.TABLE_TABLES, cv, "name=?", arrayOf(name))
+                    if (updated == 0) {
+                        db.insert(RestaurantDbHelper.TABLE_TABLES, null, cv)
+                    }
+                }
+            }
+
+            // 7. Synchronize Settings
+            val settingsObj = payload.optJSONObject("settings")
+            if (settingsObj != null) {
+                val cv = ContentValues()
+                val keys = settingsObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    cv.put(k, settingsObj.optString(k))
+                }
+                if (cv.size() > 0) {
+                    db.update(RestaurantDbHelper.TABLE_SYSTEM_SETTINGS, cv, "id=1", null)
+                }
+            }
+
+            // 8. Synchronize Completed Orders (Revenue data)
+            val ordersArr = payload.optJSONArray("orders")
+            if (ordersArr != null) {
+                for (i in 0 until ordersArr.length()) {
+                    val oObj = ordersArr.getJSONObject(i)
+                    val oTime = oObj.optLong("timestamp", oObj.optLong("createdAt", System.currentTimeMillis()))
+                    val oTable = oObj.optString("tableName", "Bàn")
+                    val check = db.rawQuery(
+                        "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ORDERS} WHERE table_name=? AND timestamp=?",
+                        arrayOf(oTable, oTime.toString())
+                    )
+                    var exists = false
+                    if (check.moveToFirst()) exists = check.getInt(0) > 0
+                    check.close()
+
+                    if (!exists) {
+                        val cv = ContentValues().apply {
+                            put("table_id", oObj.optLong("tableId", 1))
+                            put("table_name", oTable)
+                            val cId = oObj.optLong("customerId")
+                            if (cId > 0) put("customer_id", cId)
+                            put("customer_name", oObj.optString("customerName", "Khách vãng lai"))
+                            put("customer_tier_name", oObj.optString("customerTierName", "Bậc Đồng"))
+                            put("employee_id", oObj.optLong("employeeId", 1))
+                            put("employee_name", oObj.optString("employeeName", oObj.optString("staffName", "Nhân viên")))
+                            put("subtotal", oObj.optDouble("subtotal", 0.0))
+                            put("discount_percent", oObj.optDouble("discountPercent", 0.0))
+                            put("payment_method", oObj.optString("paymentMethod", "Tiền mặt"))
+                            put("status", oObj.optString("status", "COMPLETED"))
+                            put("timestamp", oTime)
+                        }
+                        val newOrderId = db.insert(RestaurantDbHelper.TABLE_ORDERS, null, cv)
+                        val itemsArr = oObj.optJSONArray("items")
+                        if (itemsArr != null && newOrderId != -1L) {
+                            for (j in 0 until itemsArr.length()) {
+                                val itObj = itemsArr.getJSONObject(j)
+                                val itCv = ContentValues().apply {
+                                    put("order_id", newOrderId)
+                                    put("menu_item_id", itObj.optLong("menuItemId", itObj.optLong("id", 1)))
+                                    put("menu_item_name", itObj.optString("menuItemName", itObj.optString("name", "Món ăn")))
+                                    put("price", itObj.optDouble("price", 0.0))
+                                    put("quantity", itObj.optInt("quantity", 1))
+                                    put("note", itObj.optString("note", ""))
+                                }
+                                db.insert(RestaurantDbHelper.TABLE_ORDER_ITEMS, null, itCv)
+                            }
+                        }
+                    }
+                }
+            }
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        loadActiveOrdersFromDb()
+        if (notify) {
+            notifyDataChanged("full_sync_completed")
         }
     }
 }

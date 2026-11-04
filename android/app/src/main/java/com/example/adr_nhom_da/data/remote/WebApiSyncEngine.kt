@@ -2,6 +2,7 @@ package com.example.adr_nhom_da.data.remote
 
 import android.content.Context
 import android.util.Log
+import com.example.adr_nhom_da.data.model.AttendanceRecord
 import com.example.adr_nhom_da.data.model.AttendanceType
 import com.example.adr_nhom_da.data.model.Customer
 import com.example.adr_nhom_da.data.model.Employee
@@ -21,11 +22,11 @@ import kotlin.concurrent.thread
 
 /**
  * WebApiSyncEngine: Tự động và liên tục đồng bộ toàn bộ cơ sở dữ liệu
- * giữa App Android (thư mục demo) và Web API (DA Restaurant Api).
+ * giữa App Android và Web API (https://dafront-1.onrender.com & Local API).
  *
  * Chạy 3 cấp độ:
- * 1. Tự động đồng bộ toàn bộ (Upload & Download) ngay khi khởi động
- * 2. Tự động đồng bộ định kỳ mỗi 20 giây (Background Worker)
+ * 1. Tự động đồng bộ toàn bộ (Upload & Download 2 chiều) ngay khi khởi động
+ * 2. Tự động đồng bộ định kỳ mỗi 15 giây (Background Worker)
  * 3. Tự động đồng bộ tức thì theo từng thao tác (Action-triggered)
  */
 object WebApiSyncEngine {
@@ -36,29 +37,31 @@ object WebApiSyncEngine {
     // Danh sách URL song song: Cloud Render đặt trước, sau đó là Local Wi-Fi PC
     val candidateBaseUrls: List<String>
         get() = listOfNotNull(
+            "https://dafront-1.onrender.com",
             RestaurantApiClient.cloudUrl,
             RestaurantApiClient.baseUrl,
             RestaurantApiClient.localUrl,
             "http://192.168.0.172:5276",
+            "http://10.168.222.213:5276",
             RestaurantApiClient.emulatorUrl,
             "http://10.0.2.2:5276",
             RestaurantApiClient.radminUrl,
             "http://26.38.230.253:5276",
             "http://127.0.0.1:5276"
-        ).distinct().filter { it.isNotBlank() }
+        ).map { RestaurantApiClient.cleanUrl(it) }.distinct().filter { it.isNotBlank() }
 
     fun start(context: Context, repository: RestaurantRepository) {
         if (isEngineRunning) return
         isEngineRunning = true
 
-        // 1. Đồng bộ toàn bộ dữ liệu ngay lập tức khi mở app
+        // 1. Đồng bộ toàn bộ dữ liệu 2 chiều ngay lập tức khi mở app
         syncAll(context, repository, null)
 
-        // 2. Chạy vòng lặp đồng bộ định kỳ mỗi 20 giây
+        // 2. Chạy vòng lặp đồng bộ định kỳ mỗi 15 giây
         syncWorkerThread = thread(start = true, isDaemon = true, name = "WebApiSyncEngineThread") {
             while (isEngineRunning) {
                 try {
-                    Thread.sleep(20000)
+                    Thread.sleep(15000)
                     if (!isEngineRunning) break
                     syncAll(context, repository, null)
                 } catch (ignored: InterruptedException) {
@@ -77,7 +80,7 @@ object WebApiSyncEngine {
     }
 
     /**
-     * Đồng bộ toàn bộ dữ liệu 2 chiều (App SQLite -> Web API -> Cập nhật ngược lại)
+     * Đồng bộ toàn bộ dữ liệu 2 chiều (App SQLite <-> Web API)
      */
     fun syncAll(
         context: Context,
@@ -103,6 +106,7 @@ object WebApiSyncEngine {
                         put("name", t.name)
                         put("floor", t.floor)
                         put("seats", t.seats)
+                        put("capacity", t.seats)
                         put("status", t.status.name)
                         put("currentOrderId", t.currentOrderId ?: JSONObject.NULL)
                     })
@@ -201,6 +205,7 @@ object WebApiSyncEngine {
                         put("fullName", u.fullName)
                         put("phone", u.phone)
                         put("role", u.role.name)
+                        put("faceIdData", u.faceIdData ?: "")
                     })
                 }
 
@@ -225,14 +230,14 @@ object WebApiSyncEngine {
                         val pingUrl = URL("$baseUrl/api/sync/ping")
                         val pingConn = (pingUrl.openConnection() as HttpURLConnection).apply {
                             requestMethod = "GET"
-                            connectTimeout = 2000
-                            readTimeout = 2000
+                            connectTimeout = 4000
+                            readTimeout = 4000
                         }
                         if (pingConn.responseCode == 200) {
                             connectedUrl = baseUrl
                             RestaurantApiClient.baseUrl = baseUrl
                             RestaurantApiClient.activeServerLabel = when {
-                                baseUrl.startsWith("https://") -> "🌐 Cloud Server ($baseUrl)"
+                                baseUrl.startsWith("https://") -> "🌐 Cloud Web API ($baseUrl)"
                                 baseUrl.contains("10.0.2.2") -> "💻 Android Emulator ($baseUrl)"
                                 else -> "🏠 Local Web API ($baseUrl)"
                             }
@@ -243,19 +248,19 @@ object WebApiSyncEngine {
                 }
 
                 if (connectedUrl == null) {
-                    onResult?.invoke(false, "Không thể kết nối Web API (kiểm tra run.bat hoặc mạng Internet Cloud)")
+                    onResult?.invoke(false, "Không thể kết nối Web API (kiểm tra mạng Internet hoặc server Render)")
                     return@thread
                 }
 
-                // Gửi Upload đồng thời lên TẤT CẢ máy chủ (cả Cloud Render và Local PC)
+                // 2. Gửi Upload đồng thời lên TẤT CẢ máy chủ (cả Cloud Render và Local PC)
                 var uploadSuccessCount = 0
                 for (targetUrl in urlsToTry) {
                     try {
                         val uploadUrl = URL("$targetUrl/api/sync/upload")
                         val uploadConn = (uploadUrl.openConnection() as HttpURLConnection).apply {
                             requestMethod = "POST"
-                            connectTimeout = 5000
-                            readTimeout = 12000
+                            connectTimeout = 6000
+                            readTimeout = 15000
                             setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                             setRequestProperty("Accept", "application/json")
                             doOutput = true
@@ -277,24 +282,69 @@ object WebApiSyncEngine {
                 if (code in 200..299) {
                     Log.i(TAG, "✓ Upload dữ liệu lên Web API thành công!")
 
-                    // Sau khi upload, gọi GET /api/sync/all để đồng bộ ngược lại các thay đổi mới từ Web API
+                    // 3. Gọi GET /api/sync/all để đồng bộ ngược lại các thay đổi mới nhất từ Web API vào app SQLite
                     try {
                         val getAllUrl = URL("$connectedUrl/api/sync/all")
                         val getConn = (getAllUrl.openConnection() as HttpURLConnection).apply {
                             requestMethod = "GET"
-                            connectTimeout = 5000
-                            readTimeout = 10000
+                            connectTimeout = 6000
+                            readTimeout = 12000
                         }
                         if (getConn.responseCode == 200) {
                             val resText = BufferedReader(InputStreamReader(getConn.inputStream)).use { it.readText() }
                             val getJson = JSONObject(resText)
-                            // Nếu Web API có dữ liệu mới, cập nhật vào SQLite nếu cần
+                            repository.applyFullSyncSnapshot(getJson, notify = true)
+                            Log.i(TAG, "✓ Đã gộp dữ liệu từ $connectedUrl vào CSDL nội bộ!")
                         }
                     } catch (e: Exception) {
-                        Log.w(TAG, "Lỗi lấy dữ liệu từ Web API: ${e.message}")
+                        Log.w(TAG, "Lỗi lấy dữ liệu /api/sync/all từ Web API: ${e.message}")
                     }
 
-                    onResult?.invoke(true, "Đồng bộ thành công với Web API ($connectedUrl)")
+                    // 4. Đồng bộ thêm danh sách User từ /api/restaurant-auth/users nếu cần
+                    try {
+                        val usersUrl = URL("$connectedUrl/api/restaurant-auth/users")
+                        val uConn = (usersUrl.openConnection() as HttpURLConnection).apply {
+                            requestMethod = "GET"
+                            connectTimeout = 4000
+                            readTimeout = 8000
+                        }
+                        if (uConn.responseCode == 200) {
+                            val uText = BufferedReader(InputStreamReader(uConn.inputStream)).use { it.readText() }
+                            val uJson = JSONObject(uText)
+                            if (uJson.optBoolean("success", false)) {
+                                val uArr = uJson.optJSONArray("data")
+                                if (uArr != null && uArr.length() > 0) {
+                                    repository.applyFullSyncSnapshot(JSONObject().put("users", uArr), notify = false)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Lỗi lấy users từ Web API: ${e.message}")
+                    }
+
+                    // 5. Đồng bộ thêm danh sách Chấm công từ /api/attendance nếu có dữ liệu mới
+                    try {
+                        val attUrl = URL("$connectedUrl/api/attendance")
+                        val aConn = (attUrl.openConnection() as HttpURLConnection).apply {
+                            requestMethod = "GET"
+                            connectTimeout = 4000
+                            readTimeout = 8000
+                        }
+                        if (aConn.responseCode == 200) {
+                            val aText = BufferedReader(InputStreamReader(aConn.inputStream)).use { it.readText() }
+                            val aJson = JSONObject(aText)
+                            if (aJson.optBoolean("success", false)) {
+                                val aArr = aJson.optJSONArray("data")
+                                if (aArr != null && aArr.length() > 0) {
+                                    repository.applyFullSyncSnapshot(JSONObject().put("attendance", aArr), notify = false)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Lỗi lấy attendance từ Web API: ${e.message}")
+                    }
+
+                    onResult?.invoke(true, "Đồng bộ thành công song song với Web API ($connectedUrl)")
                 } else {
                     Log.w(TAG, "Lỗi HTTP $code từ Web API")
                     onResult?.invoke(false, "Web API phản hồi mã lỗi: $code")
@@ -361,6 +411,7 @@ object WebApiSyncEngine {
             put("status", order.status.name)
             put("subtotal", order.subtotal)
             put("discountPercent", order.discountPercent)
+            put("vatPercent", 0.0)
             put("finalAmount", order.finalTotal)
             put("paymentMethod", order.paymentMethod)
             put("staffName", order.employeeName)
@@ -379,20 +430,32 @@ object WebApiSyncEngine {
         })
     }
 
+    fun syncAttendanceAsync(record: AttendanceRecord) {
+        postRecordAsync("/api/attendance/record", JSONObject().apply {
+            put("employeeId", record.employeeId)
+            put("employeeName", record.employeeName)
+            put("type", record.type.name)
+            put("method", record.method.name)
+            put("timestamp", record.timestamp)
+            put("durationHours", record.durationHours)
+            put("note", record.note)
+        })
+    }
+
     private fun postRecordAsync(endpoint: String, body: JSONObject) {
         thread(start = true, isDaemon = true) {
             try {
                 val urls = (listOf(RestaurantApiClient.baseUrl) + candidateBaseUrls).distinct()
                 val jsonStr = body.toString()
 
-                // Đồng bộ thay đổi tức thời tới TẤT CẢ máy chủ đang bật (cả Cloud và Local)
+                // Đồng bộ thay đổi tức thời tới TẤT CẢ máy chủ đang bật (cả Cloud Render và Local)
                 for (baseUrl in urls) {
                     try {
                         val url = URL("$baseUrl$endpoint")
                         val conn = (url.openConnection() as HttpURLConnection).apply {
                             requestMethod = "POST"
-                            connectTimeout = 3000
-                            readTimeout = 4000
+                            connectTimeout = 4000
+                            readTimeout = 6000
                             setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                             doOutput = true
                         }
@@ -407,4 +470,3 @@ object WebApiSyncEngine {
         }
     }
 }
-

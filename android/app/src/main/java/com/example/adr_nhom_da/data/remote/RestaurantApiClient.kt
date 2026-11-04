@@ -13,23 +13,24 @@ import java.net.URL
 
 object RestaurantApiClient {
     // URL Web API máy chủ đang kết nối (Tự động chuyển đổi giữa Local và Cloud)
-    var baseUrl: String = "http://192.168.0.172:5276"
+    var baseUrl: String = "https://dafront-1.onrender.com"
     var localUrl: String = "http://192.168.0.172:5276"
-    var cloudUrl: String = "https://da-restaurant-api.onrender.com"
+    var cloudUrl: String = "https://dafront-1.onrender.com"
     var emulatorUrl: String = "http://10.0.2.2:5276"
     var radminUrl: String = "http://26.38.230.253:5276"
-    var activeServerLabel: String = "Tự động kết nối"
+    var activeServerLabel: String = "🌐 Cloud Web API (https://dafront-1.onrender.com)"
     var authToken: String? = null
 
     fun cleanUrl(rawUrl: String): String {
         var cleaned = rawUrl.trim()
-        if (cleaned.endsWith("/api/")) {
-            cleaned = cleaned.removeSuffix("/api/")
-        } else if (cleaned.endsWith("/api")) {
-            cleaned = cleaned.removeSuffix("/api")
+        while (cleaned.endsWith("/")) {
+            cleaned = cleaned.dropLast(1).trim()
         }
-        if (cleaned.endsWith("/")) {
-            cleaned = cleaned.dropLast(1)
+        if (cleaned.endsWith("/api")) {
+            cleaned = cleaned.removeSuffix("/api").trim()
+        }
+        while (cleaned.endsWith("/")) {
+            cleaned = cleaned.dropLast(1).trim()
         }
         return cleaned
     }
@@ -57,10 +58,19 @@ object RestaurantApiClient {
     fun init(context: android.content.Context) {
         try {
             val prefs = context.getSharedPreferences("app_api_config", android.content.Context.MODE_PRIVATE)
-            val savedCloud = prefs.getString("cloud_url", "") ?: ""
+            var savedCloud = prefs.getString("cloud_url", "") ?: ""
             val savedLocal = prefs.getString("local_url", "") ?: ""
 
-            if (savedCloud.isNotBlank()) cloudUrl = cleanUrl(savedCloud)
+            // Tự động nâng cấp URL cũ lên endpoint deploy mới trên Render
+            if (savedCloud.isBlank() || savedCloud.contains("da-restaurant-api.onrender.com")) {
+                savedCloud = "https://dafront-1.onrender.com"
+                prefs.edit().putString("cloud_url", savedCloud).apply()
+            }
+
+            if (savedCloud.isNotBlank()) {
+                cloudUrl = cleanUrl(savedCloud)
+                baseUrl = cloudUrl
+            }
             if (savedLocal.isNotBlank()) localUrl = cleanUrl(savedLocal)
 
             context.assets.open(".env").bufferedReader().useLines { lines ->
@@ -87,7 +97,7 @@ object RestaurantApiClient {
                 }
             }
 
-            if (savedCloud.isNotBlank()) {
+            if (cloudUrl.isNotBlank()) {
                 baseUrl = cloudUrl
             }
         } catch (e: Exception) {
@@ -100,8 +110,8 @@ object RestaurantApiClient {
             val url = URL("$baseUrl/api/sync/ping")
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 3000
-                readTimeout = 3000
+                connectTimeout = 4000
+                readTimeout = 4000
             }
             conn.responseCode == 200
         } catch (e: Exception) {
@@ -116,8 +126,8 @@ object RestaurantApiClient {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
                 doOutput = true
-                connectTimeout = 5000
-                readTimeout = 5000
+                connectTimeout = 6000
+                readTimeout = 6000
             }
 
             val body = JSONObject().apply {
@@ -154,8 +164,8 @@ object RestaurantApiClient {
             val url = URL("$baseUrl/api/tables")
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 5000
-                readTimeout = 5000
+                connectTimeout = 6000
+                readTimeout = 6000
             }
             if (conn.responseCode == 200) {
                 val json = JSONObject(readStream(conn))
@@ -189,8 +199,8 @@ object RestaurantApiClient {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
                 doOutput = true
-                connectTimeout = 7000
-                readTimeout = 7000
+                connectTimeout = 8000
+                readTimeout = 8000
             }
 
             val itemsArray = JSONArray()
@@ -245,8 +255,8 @@ object RestaurantApiClient {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
                 doOutput = true
-                connectTimeout = 5000
-                readTimeout = 5000
+                connectTimeout = 6000
+                readTimeout = 6000
             }
 
             val body = JSONObject().apply {

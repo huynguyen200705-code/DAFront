@@ -890,18 +890,33 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Text("🌐 URL Cloud Deploy (Render.com / Railway):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("🌐 URL Cloud Deploy (Render.com - 24/7):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     OutlinedTextField(
                         value = inputCloudUrl,
                         onValueChange = { newVal: String ->
                             inputCloudUrl = newVal
                             testResultMsg = null
                         },
-                        placeholder = { Text("https://da-restaurant-api.onrender.com") },
+                        placeholder = { Text("https://dafront-1.onrender.com") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("Dán URL Web Service Render của bạn vào đây.", fontSize = 11.sp, color = Color.Gray)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Web API đã deploy trực tuyến 24/7", fontSize = 11.sp, color = Color.Gray)
+                        TextButton(
+                            onClick = {
+                                inputCloudUrl = "https://dafront-1.onrender.com"
+                                testResultMsg = null
+                            },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                        ) {
+                            Text("Mặc định Render", fontSize = 11.sp, color = Color(0xFF1976D2), fontWeight = FontWeight.Bold)
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
