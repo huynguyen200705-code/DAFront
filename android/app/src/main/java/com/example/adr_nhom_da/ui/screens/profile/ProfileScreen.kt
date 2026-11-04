@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.adr_nhom_da.data.model.*
 import com.example.adr_nhom_da.data.remote.RealtimeSyncManager
+import com.example.adr_nhom_da.data.remote.WebApiSyncEngine
 import com.example.adr_nhom_da.data.repository.RestaurantRepository
 import com.example.adr_nhom_da.ui.components.FaceIdEnrollmentDialog
 import com.example.adr_nhom_da.ui.components.formatVnd
@@ -62,6 +63,7 @@ fun ProfileScreen(
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showAttendanceHistoryDialog by remember { mutableStateOf(false) }
     var showSystemSettingsDialog by remember { mutableStateOf(false) }
+    var showAccountManagementDialog by remember { mutableStateOf(false) }
     var showDeleteFaceIdConfirmDialog by remember { mutableStateOf(false) }
     var showLogoutConfirmDialog by remember { mutableStateOf(false) }
     var syncNoticeMessage by remember { mutableStateOf<String?>(null) }
@@ -506,18 +508,29 @@ fun ProfileScreen(
                         icon = Icons.Default.Sync,
                         iconColor = Color(0xFF00B0FF),
                         title = "Đồng Bộ Toàn Bộ Dữ Liệu Ngay",
-                        subtitle = "Kéo dữ liệu tài khoản, món ăn, nhân viên từ các máy khác",
+                        subtitle = "Tải toàn bộ Bàn, Món, Khách, Đơn lên Web API và các máy khác",
                         trailingBadge = if (isCloudOnline) "ONLINE" else "LOCAL",
                         badgeColor = if (isCloudOnline) Color(0xFF2E7D32) else Color(0xFFF57C00),
                         onClick = {
                             RealtimeSyncManager.sendPing()
                             RealtimeSyncManager.broadcast("REQUEST_FULL_SYNC", JSONObject(), "Yêu cầu đồng bộ lại toàn bộ dữ liệu")
-                            syncNoticeMessage = "Đã gửi lệnh đồng bộ! Dữ liệu đang được đồng bộ thời gian thực."
+                            WebApiSyncEngine.syncAll(context, repository) { success, msg ->
+                                syncNoticeMessage = if (success) "✓ $msg" else "⚠ $msg"
+                            }
+                            syncNoticeMessage = "Đang đồng bộ dữ liệu với Web API và Cloud Real-time..."
                         }
                     )
 
                     // System Settings (Admin only)
                     if (activeUser.role == UserRole.ADMIN) {
+                        HorizontalDivider(color = Color(0xFFF0F0F0))
+                        ProfileMenuRow(
+                            icon = Icons.Default.ManageAccounts,
+                            iconColor = Color(0xFFE65100),
+                            title = "Quản Lý Toàn Bộ Tài Khoản Hệ Thống",
+                            subtitle = "Phân quyền Quản trị / Nhân viên, Face ID & đồng bộ toàn máy",
+                            onClick = { showAccountManagementDialog = true }
+                        )
                         HorizontalDivider(color = Color(0xFFF0F0F0))
                         ProfileMenuRow(
                             icon = Icons.Default.Settings,
@@ -834,6 +847,297 @@ fun ProfileScreen(
                 TextButton(onClick = { showSystemSettingsDialog = false }) { Text("Hủy") }
             }
         )
+    }
+
+    // 7b. System Accounts Management Dialog (Admin only)
+    if (showAccountManagementDialog) {
+        val syncVersion by repository.syncVersion.collectAsState()
+        var allUsers by remember(syncVersion) { mutableStateOf(repository.getAllUsers()) }
+        var showCreateUserDialog by remember { mutableStateOf(false) }
+        var userToDelete by remember { mutableStateOf<User?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { showAccountManagementDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ManageAccounts, contentDescription = null, tint = PrimaryRed, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text("Quản Lý Tài Khoản Hệ Thống", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Text(
+                            "${allUsers.size} tài khoản (${allUsers.count { it.role == UserRole.ADMIN }} Quản trị, ${allUsers.count { it.role == UserRole.USER }} Nhân viên)",
+                            fontSize = 11.5.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 450.dp)
+                ) {
+                    // Quick Action Row: Add User & Full Cloud Sync
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { showCreateUserDialog = true },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryRed),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Thêm Tài Khoản", fontSize = 11.5.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                repository.syncRetainedCloudState()
+                                RealtimeSyncManager.broadcast("REQUEST_FULL_SYNC", JSONObject(), "Đồng bộ toàn bộ tài khoản")
+                                Toast.makeText(context, "⚡ Đã đẩy đồng bộ toàn bộ tài khoản lên toàn hệ thống!", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.weight(1f),
+                            border = BorderStroke(1.dp, Color(0xFF00B0FF)),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Sync, contentDescription = null, tint = Color(0xFF00B0FF), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Đồng Bộ Toàn Máy", fontSize = 11.5.sp, color = Color(0xFF00B0FF))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    LazyColumn(
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(allUsers, key = { it.id }) { user ->
+                            val isAdmin = user.role == UserRole.ADMIN
+                            val hasFace = !user.faceIdData.isNullOrBlank()
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
+                                border = BorderStroke(1.dp, if (isAdmin) PrimaryRed.copy(alpha = 0.3f) else Color(0xFFE0E0E0))
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // Emoji Avatar
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isAdmin) PrimaryRed.copy(alpha = 0.12f) else SecondaryGold.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(if (isAdmin) "👑" else "👨‍🍳", fontSize = 18.sp)
+                                        }
+
+                                        Spacer(modifier = Modifier.width(10.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(user.fullName.ifBlank { user.username }, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                                            Text("@${user.username} • ${user.phone.ifBlank { "Chưa có SĐT" }}", fontSize = 11.5.sp, color = Color.Gray)
+                                        }
+
+                                        // Role Chip
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(if (isAdmin) PrimaryRed else SecondaryDarkGold)
+                                                .padding(horizontal = 7.dp, vertical = 3.dp)
+                                        ) {
+                                            Text(
+                                                if (isAdmin) "QUẢN TRỊ" else "NHÂN VIÊN",
+                                                color = Color.White,
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        // Face ID status
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(6.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (hasFace) Color(0xFF2E7D32) else Color.Gray)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                if (hasFace) "Face ID: Đã kích hoạt ✓" else "Face ID: Chưa đăng ký",
+                                                fontSize = 11.sp,
+                                                color = if (hasFace) Color(0xFF2E7D32) else Color.Gray,
+                                                fontWeight = if (hasFace) FontWeight.SemiBold else FontWeight.Normal
+                                            )
+                                        }
+
+                                        // Action buttons
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            // Toggle Role Button
+                                            TextButton(
+                                                onClick = {
+                                                    val newRole = if (isAdmin) UserRole.USER else UserRole.ADMIN
+                                                    repository.updateUserRole(user.id, newRole)
+                                                    allUsers = repository.getAllUsers()
+                                                    Toast.makeText(context, "Đã chuyển quyền @${user.username} thành ${newRole.name}!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(if (isAdmin) "Hạ thành NV" else "Lên Quản Trị", fontSize = 10.5.sp, color = PrimaryRed, fontWeight = FontWeight.Bold)
+                                            }
+
+                                            // Delete User (if not self)
+                                            if (user.username != activeUser.username) {
+                                                TextButton(
+                                                    onClick = { userToDelete = user },
+                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("Xóa", fontSize = 10.5.sp, color = Color.Red)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAccountManagementDialog = false }) {
+                    Text("Đóng")
+                }
+            }
+        )
+
+        // Sub-dialog: Create User
+        if (showCreateUserDialog) {
+            var newUname by remember { mutableStateOf("") }
+            var newPass by remember { mutableStateOf("") }
+            var newFname by remember { mutableStateOf("") }
+            var newPhone by remember { mutableStateOf("") }
+            var newRole by remember { mutableStateOf(UserRole.USER) }
+
+            AlertDialog(
+                onDismissRequest = { showCreateUserDialog = false },
+                title = { Text("Tạo Tài Khoản Mới", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = newFname,
+                            onValueChange = { newFname = it },
+                            label = { Text("Họ và tên") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = newUname,
+                            onValueChange = { newUname = it },
+                            label = { Text("Tên đăng nhập") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = newPass,
+                            onValueChange = { newPass = it },
+                            label = { Text("Mật khẩu") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = newPhone,
+                            onValueChange = { newPhone = it },
+                            label = { Text("Số điện thoại") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Vai trò: ", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            FilterChip(
+                                selected = newRole == UserRole.USER,
+                                onClick = { newRole = UserRole.USER },
+                                label = { Text("Nhân Viên") }
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            FilterChip(
+                                selected = newRole == UserRole.ADMIN,
+                                onClick = { newRole = UserRole.ADMIN },
+                                label = { Text("Quản Trị") }
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (newUname.isNotBlank() && newPass.isNotBlank()) {
+                                val success = repository.register(
+                                    User(
+                                        username = newUname.trim(),
+                                        password = newPass.trim(),
+                                        fullName = newFname.trim(),
+                                        phone = newPhone.trim(),
+                                        role = newRole
+                                    )
+                                )
+                                if (success) {
+                                    allUsers = repository.getAllUsers()
+                                    showCreateUserDialog = false
+                                    Toast.makeText(context, "Đã tạo tài khoản @$newUname và đồng bộ toàn máy!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Tên đăng nhập đã tồn tại!", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryRed)
+                    ) {
+                        Text("Tạo & Đồng Bộ")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCreateUserDialog = false }) { Text("Hủy") }
+                }
+            )
+        }
+
+        // Sub-dialog: Confirm Delete User
+        if (userToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { userToDelete = null },
+                title = { Text("Xác Nhận Xóa Tài Khoản") },
+                text = { Text("Bạn có chắc muốn xóa tài khoản '${userToDelete!!.fullName}' (@${userToDelete!!.username}) khỏi hệ thống toàn bộ các máy?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            repository.deleteUser(userToDelete!!.id)
+                            allUsers = repository.getAllUsers()
+                            userToDelete = null
+                            Toast.makeText(context, "Đã xóa tài khoản và đồng bộ tới toàn bộ thiết bị!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryRed)
+                    ) {
+                        Text("Xóa Ngay")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { userToDelete = null }) { Text("Hủy") }
+                }
+            )
+        }
     }
 
     // 8. Delete Face ID Confirm Dialog

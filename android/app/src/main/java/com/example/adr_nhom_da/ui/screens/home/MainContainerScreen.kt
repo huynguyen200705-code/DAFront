@@ -29,7 +29,7 @@ sealed class NavTab(val title: String, val icon: ImageVector) {
     object Menu : NavTab("Thực đơn", Icons.Default.RestaurantMenu)
     object Customer : NavTab("Khách hàng", Icons.Default.People)
     object Employee : NavTab("Nhân sự", Icons.Default.Badge)
-    object Analytics : NavTab("Thống kê", Icons.Default.Analytics)
+    object Revenue : NavTab("Doanh thu", Icons.Default.MonetizationOn)
     object Profile : NavTab("Cá nhân", Icons.Default.Person)
 }
 
@@ -47,7 +47,7 @@ fun MainContainerScreen(
                 NavTab.Menu,
                 NavTab.Customer,
                 NavTab.Employee,
-                NavTab.Analytics,
+                NavTab.Revenue,
                 NavTab.Profile
             )
         } else {
@@ -55,6 +55,7 @@ fun MainContainerScreen(
                 NavTab.Tables,
                 NavTab.POS,
                 NavTab.Menu,
+                NavTab.Revenue,
                 NavTab.Profile
             )
         }
@@ -130,8 +131,9 @@ fun MainContainerScreen(
                 NavTab.Employee -> EmployeeManagementScreen(
                     repository = repository
                 )
-                NavTab.Analytics -> AnalyticsScreen(
-                    repository = repository
+                NavTab.Revenue -> AnalyticsScreen(
+                    repository = repository,
+                    currentUser = currentUser
                 )
                 NavTab.Profile -> ProfileScreen(
                     currentUser = currentUser,

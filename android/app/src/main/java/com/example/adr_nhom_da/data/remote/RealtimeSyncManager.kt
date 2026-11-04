@@ -19,6 +19,8 @@ import java.util.UUID
 object RealtimeSyncManager {
     private const val TAG = "RealtimeSyncManager"
     const val SYNC_TOPIC = "goldenspoon_pos/realtime_sync"
+    const val RETAINED_TOPIC = "goldenspoon_pos/realtime_sync/retained_state"
+    const val WILDCARD_TOPIC = "goldenspoon_pos/realtime_sync/#"
     const val LOCAL_UDP_PORT = 9876
 
     val deviceId: String = UUID.randomUUID().toString().take(8)
@@ -120,6 +122,31 @@ object RealtimeSyncManager {
         broadcast("PING", payload, "Thiết bị $deviceName đã tham gia đồng bộ")
     }
 
+    /**
+     * Publishes a retained full state snapshot to the Cloud Broker.
+     * Retained messages persist on HiveMQ/EMQX cloud brokers, allowing any phone
+     * that opens later (even if other devices are offline) to immediately receive
+     * the complete up-to-date state (accounts, employees, attendance, tables).
+     */
+    fun publishRetainedState(payload: JSONObject, message: String) {
+        scope.launch {
+            try {
+                val json = JSONObject().apply {
+                    put("senderId", deviceId)
+                    put("senderName", deviceName)
+                    put("type", "RESPONSE_FULL_SYNC")
+                    put("message", message)
+                    put("payload", payload)
+                    put("timestamp", System.currentTimeMillis())
+                }
+                sendMqttPublish(RETAINED_TOPIC, json.toString(), retain = true)
+                Log.d(TAG, "⚡ Published RETAINED cloud state: $message")
+            } catch (e: Exception) {
+                Log.w(TAG, "Retained state publish warning: ${e.message}")
+            }
+        }
+    }
+
     // ==========================================
     // CLOUD REAL-TIME ENGINE (MQTT 3.1.1)
     // ==========================================
@@ -149,11 +176,11 @@ object RealtimeSyncManager {
                     val flags = input.read()
                     val returnCode = input.read()
                     if (returnCode == 0) {
-                        Log.i(TAG, "✓ Cloud Real-time Broker CONNECTED! Subscribing to $SYNC_TOPIC...")
+                        Log.i(TAG, "✓ Cloud Real-time Broker CONNECTED! Subscribing to $WILDCARD_TOPIC...")
                         _isCloudConnected.value = true
 
-                        // Send SUBSCRIBE
-                        sendMqttSubscribe(out, SYNC_TOPIC)
+                        // Send SUBSCRIBE to wildcard topic so both live sync and retained state are received
+                        sendMqttSubscribe(out, WILDCARD_TOPIC)
 
                         // Start keep-alive ping loop
                         val pingJob = launch {
@@ -312,7 +339,7 @@ object RealtimeSyncManager {
         }
     }
 
-    private fun sendMqttPublish(topic: String, message: String) {
+    private fun sendMqttPublish(topic: String, message: String, retain: Boolean = false) {
         val out = mqttOutputStream ?: return
         try {
             val tBytes = topic.toByteArray(Charsets.UTF_8)
@@ -325,7 +352,8 @@ object RealtimeSyncManager {
             }
 
             val packet = ByteArrayOutputStream().apply {
-                write(0x30) // PUBLISH QoS 0
+                // Header byte: 0x30 for standard QoS 0, 0x31 for QoS 0 + RETAIN
+                write(if (retain) 0x31 else 0x30)
                 writeRemainingLength(this, payload.size())
                 write(payload.toByteArray())
             }
@@ -373,7 +401,7 @@ object RealtimeSyncManager {
                 broadcast = true
                 bind(InetSocketAddress(LOCAL_UDP_PORT))
             }
-            val buffer = ByteArray(4096)
+            val buffer = ByteArray(65535)
             while (isRunning) {
                 try {
                     val packet = DatagramPacket(buffer, buffer.size)

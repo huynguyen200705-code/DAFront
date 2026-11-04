@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import com.example.adr_nhom_da.data.model.User
+import com.example.adr_nhom_da.data.remote.WebApiSyncEngine
 import com.example.adr_nhom_da.data.repository.RestaurantRepository
 import com.example.adr_nhom_da.ui.screens.auth.LoginScreen
 import com.example.adr_nhom_da.ui.screens.auth.RegisterScreen
@@ -24,6 +25,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = RestaurantRepository(this)
+        
+        // Khởi động Engine đồng bộ 2 chiều liên tục với Web API
+        WebApiSyncEngine.start(applicationContext, repository)
+
         val savedUser = repository.getSavedLoggedInUser()
 
         setContent {
@@ -74,5 +79,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        WebApiSyncEngine.stop()
     }
 }

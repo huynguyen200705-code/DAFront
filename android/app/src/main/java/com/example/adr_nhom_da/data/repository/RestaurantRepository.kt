@@ -8,6 +8,7 @@ import com.example.adr_nhom_da.data.local.RestaurantDbHelper
 import com.example.adr_nhom_da.data.model.*
 import com.example.adr_nhom_da.data.remote.RealtimeSyncManager
 import com.example.adr_nhom_da.data.remote.RestaurantApiClient
+import com.example.adr_nhom_da.data.remote.WebApiSyncEngine
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -234,6 +235,7 @@ class RestaurantRepository(context: Context) {
                     put("faceIdData", user.faceIdData ?: "")
                 }
                 RealtimeSyncManager.broadcast("USER_REGISTERED", payload, "Tài khoản mới: @${user.username} (${user.fullName})")
+                syncRetainedCloudState()
             }
             return true
         }
@@ -258,6 +260,7 @@ class RestaurantRepository(context: Context) {
                     put("faceIdData", faceIdData)
                 }
                 RealtimeSyncManager.broadcast("USER_FACE_ID_UPDATED", payload, "Liên kết Face ID thành công cho @$username")
+                syncRetainedCloudState()
             }
         }
         return updated
@@ -281,6 +284,7 @@ class RestaurantRepository(context: Context) {
                     put("faceIdData", "")
                 }
                 RealtimeSyncManager.broadcast("USER_FACE_ID_UPDATED", payload, "Hủy liên kết Face ID cho @$username")
+                syncRetainedCloudState()
             }
         }
         return updated
@@ -309,6 +313,7 @@ class RestaurantRepository(context: Context) {
                         put("phone", newPhone)
                     }
                     RealtimeSyncManager.broadcast("USER_PROFILE_UPDATED", payload, "Cập nhật hồ sơ: $newFullName (@${user.username})")
+                    syncRetainedCloudState()
                 }
             }
         }
@@ -367,9 +372,222 @@ class RestaurantRepository(context: Context) {
                     put("newPassword", newPass)
                 }
                 RealtimeSyncManager.broadcast("USER_PASSWORD_UPDATED", payload, "Cập nhật mật khẩu tài khoản: @${user.username}")
+                syncRetainedCloudState()
             }
         }
         return success
+    }
+
+    fun updateUserRole(userId: Long, newRole: UserRole, broadcast: Boolean = true): Boolean {
+        val db = dbHelper.writableDatabase
+        val user = getUserById(userId) ?: return false
+        val cv = ContentValues().apply {
+            put("role", newRole.name)
+        }
+        val success = db.update(RestaurantDbHelper.TABLE_USERS, cv, "id=?", arrayOf(userId.toString())) > 0
+        if (success) {
+            val saved = getSavedLoggedInUser()
+            if (saved?.id == userId) {
+                saveLoggedInUser(saved.copy(role = newRole))
+            }
+
+            // Also update linked Employee tier & position
+            val emp = getAllEmployees().find {
+                it.name.equals(user.fullName, ignoreCase = true) ||
+                it.name.equals(user.username, ignoreCase = true) ||
+                (user.phone.isNotBlank() && it.phone == user.phone)
+            }
+            if (emp != null) {
+                val updatedEmp = emp.copy(
+                    position = if (newRole == UserRole.ADMIN) "Quản Lý (@${user.username})" else "Nhân Viên (@${user.username})",
+                    tier = if (newRole == UserRole.ADMIN) EmployeeTier.QUAN_LY else EmployeeTier.CHINH_THUC,
+                    monthlySalary = if (newRole == UserRole.ADMIN) 15000000.0 else 8500000.0
+                )
+                updateEmployee(updatedEmp, broadcast = false)
+            }
+
+            notifyDataChanged("user_role_updated")
+            if (broadcast) {
+                val payload = JSONObject().apply {
+                    put("id", userId)
+                    put("username", user.username)
+                    put("role", newRole.name)
+                }
+                RealtimeSyncManager.broadcast("USER_ROLE_UPDATED", payload, "Cập nhật quyền tài khoản @${user.username} thành ${if (newRole == UserRole.ADMIN) "Quản Trị (ADMIN)" else "Nhân Viên (STAFF)"}")
+                syncRetainedCloudState()
+            }
+        }
+        return success
+    }
+
+    fun deleteUser(userId: Long, broadcast: Boolean = true): Boolean {
+        val user = getUserById(userId) ?: return false
+        val db = dbHelper.writableDatabase
+        val success = db.delete(RestaurantDbHelper.TABLE_USERS, "id=?", arrayOf(userId.toString())) > 0
+        if (success) {
+            val saved = getSavedLoggedInUser()
+            if (saved?.id == userId) {
+                clearLoggedInUser()
+            }
+            notifyDataChanged("user_deleted")
+            if (broadcast) {
+                val payload = JSONObject().apply {
+                    put("id", userId)
+                    put("username", user.username)
+                }
+                RealtimeSyncManager.broadcast("USER_DELETED", payload, "Xóa tài khoản @${user.username}")
+                syncRetainedCloudState()
+            }
+        }
+        return success
+    }
+
+    fun syncRetainedCloudState() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val snapshot = buildFullSyncSnapshot()
+                RealtimeSyncManager.publishRetainedState(snapshot, "Lưu trữ bản sao dữ liệu toàn hệ thống lên Cloud")
+            } catch (e: Exception) {
+                Log.w("RestaurantRepository", "Error syncing retained state", e)
+            }
+        }
+    }
+
+    fun buildFullSyncSnapshot(): JSONObject {
+        return JSONObject().apply {
+            // 1. Users
+            val usersArr = JSONArray()
+            for (u in getAllUsers()) {
+                usersArr.put(JSONObject().apply {
+                    put("id", u.id)
+                    put("username", u.username)
+                    put("password", u.password)
+                    put("fullName", u.fullName)
+                    put("phone", u.phone)
+                    put("role", u.role.name)
+                    put("faceIdData", u.faceIdData ?: "")
+                })
+            }
+            put("users", usersArr)
+
+            // 2. Employees
+            val empArr = JSONArray()
+            for (e in getAllEmployees()) {
+                empArr.put(JSONObject().apply {
+                    put("id", e.id)
+                    put("name", e.name)
+                    put("phone", e.phone)
+                    put("position", e.position)
+                    put("tier", e.tier.name)
+                    put("contractType", e.contractType.name)
+                    put("hourlyRate", e.hourlyRate)
+                    put("monthlySalary", e.monthlySalary)
+                    put("workedHours", e.workedHours)
+                    put("workedDays", e.workedDays)
+                    put("bonus", e.bonus)
+                    put("penalty", e.penalty)
+                })
+            }
+            put("employees", empArr)
+
+            // 3. Attendance Records
+            val attArr = JSONArray()
+            for (a in getAllAttendanceRecords()) {
+                attArr.put(JSONObject().apply {
+                    put("id", a.id)
+                    put("employeeId", a.employeeId)
+                    put("employeeName", a.employeeName)
+                    put("type", a.type.name)
+                    put("method", a.method.name)
+                    put("timestamp", a.timestamp)
+                    put("durationHours", a.durationHours)
+                    put("note", a.note)
+                })
+            }
+            put("attendance", attArr)
+
+            // 4. Menu Items
+            val menuArr = JSONArray()
+            for (m in getAllMenuItems()) {
+                menuArr.put(JSONObject().apply {
+                    put("id", m.id)
+                    put("name", m.name)
+                    put("category", m.category)
+                    put("price", m.price)
+                    put("description", m.description)
+                    put("isAvailable", m.isAvailable)
+                })
+            }
+            put("menuItems", menuArr)
+
+            // 5. Customers
+            val custArr = JSONArray()
+            for (c in getAllCustomers()) {
+                custArr.put(JSONObject().apply {
+                    put("id", c.id)
+                    put("name", c.name)
+                    put("phone", c.phone)
+                    put("email", c.email)
+                    put("totalSpent", c.totalSpent)
+                    put("loyaltyPoints", c.loyaltyPoints)
+                })
+            }
+            put("customers", custArr)
+
+            // 6. Tables
+            val tablesArr = JSONArray()
+            for (t in getAllTables()) {
+                tablesArr.put(JSONObject().apply {
+                    put("id", t.id)
+                    put("name", t.name)
+                    put("floor", t.floor)
+                    put("seats", t.seats)
+                    put("status", t.status.name)
+                })
+            }
+            put("tables", tablesArr)
+
+            // 7. Completed Orders (Revenue data)
+            val ordersArr = JSONArray()
+            for (o in getAllCompletedOrders().take(100)) {
+                ordersArr.put(JSONObject().apply {
+                    put("id", o.id)
+                    put("tableId", o.tableId)
+                    put("tableName", o.tableName)
+                    put("customerId", o.customerId ?: 0L)
+                    put("customerName", o.customerName)
+                    put("customerTierName", o.customerTierName)
+                    put("employeeId", o.employeeId)
+                    put("employeeName", o.employeeName)
+                    put("subtotal", o.subtotal)
+                    put("discountPercent", o.discountPercent)
+                    put("paymentMethod", o.paymentMethod)
+                    put("status", o.status.name)
+                    put("timestamp", o.timestamp)
+                    val itemsArr = JSONArray()
+                    for (item in o.items) {
+                        itemsArr.put(JSONObject().apply {
+                            put("menuItemId", item.menuItemId)
+                            put("menuItemName", item.menuItemName)
+                            put("price", item.price)
+                            put("quantity", item.quantity)
+                            put("note", item.note)
+                        })
+                    }
+                    put("items", itemsArr)
+                })
+            }
+            put("orders", ordersArr)
+
+            // 8. System Settings
+            val settingsObj = JSONObject()
+            for ((k, v) in getSystemSettings()) {
+                settingsObj.put(k, v)
+            }
+            put("settings", settingsObj)
+
+            put("syncTimestamp", System.currentTimeMillis())
+        }
     }
 
     // --- SYSTEM SETTINGS ---
@@ -438,6 +656,7 @@ class RestaurantRepository(context: Context) {
         val id = db.insertWithOnConflict(RestaurantDbHelper.TABLE_CUSTOMERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
         if (id != -1L) {
             notifyDataChanged("add_customer")
+            WebApiSyncEngine.syncCustomerAsync(customer.copy(id = id))
             if (broadcast) {
                 val payload = JSONObject().apply {
                     put("id", id)
@@ -466,6 +685,7 @@ class RestaurantRepository(context: Context) {
         val success = db.update(RestaurantDbHelper.TABLE_CUSTOMERS, cv, "id=?", arrayOf(customer.id.toString())) > 0
         if (success) {
             notifyDataChanged("update_customer")
+            WebApiSyncEngine.syncCustomerAsync(customer)
             if (broadcast) {
                 val payload = JSONObject().apply {
                     put("id", customer.id)
@@ -564,6 +784,7 @@ class RestaurantRepository(context: Context) {
         val id = db.insertWithOnConflict(RestaurantDbHelper.TABLE_EMPLOYEES, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
         if (id != -1L) {
             notifyDataChanged("add_employee")
+            WebApiSyncEngine.syncEmployeeAsync(emp.copy(id = id))
             if (broadcast) {
                 val payload = JSONObject().apply {
                     put("id", id)
@@ -580,6 +801,7 @@ class RestaurantRepository(context: Context) {
                     put("penalty", emp.penalty)
                 }
                 RealtimeSyncManager.broadcast("EMPLOYEE_ADDED", payload, "Thêm nhân viên: ${emp.name}")
+                syncRetainedCloudState()
             }
             return true
         }
@@ -604,6 +826,7 @@ class RestaurantRepository(context: Context) {
         val success = db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "id=?", arrayOf(emp.id.toString())) > 0
         if (success) {
             notifyDataChanged("update_employee")
+            WebApiSyncEngine.syncEmployeeAsync(emp)
             if (broadcast) {
                 val payload = JSONObject().apply {
                     put("id", emp.id)
@@ -620,6 +843,7 @@ class RestaurantRepository(context: Context) {
                     put("penalty", emp.penalty)
                 }
                 RealtimeSyncManager.broadcast("EMPLOYEE_UPDATED", payload, "Cập nhật nhân viên: ${emp.name}")
+                syncRetainedCloudState()
             }
         }
         return success
@@ -638,6 +862,7 @@ class RestaurantRepository(context: Context) {
                     put("phone", emp?.phone ?: "")
                 }
                 RealtimeSyncManager.broadcast("EMPLOYEE_DELETED", payload, "Xóa nhân viên: ${emp?.name ?: "#$id"}")
+                syncRetainedCloudState()
             }
         }
         return success
@@ -696,6 +921,7 @@ class RestaurantRepository(context: Context) {
         val id = db.insertWithOnConflict(RestaurantDbHelper.TABLE_MENU_ITEMS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
         if (id != -1L) {
             notifyDataChanged("add_menu")
+            WebApiSyncEngine.syncMenuItemAsync(item.copy(id = id))
             if (broadcast) {
                 val payload = JSONObject().apply {
                     put("id", id)
@@ -724,6 +950,7 @@ class RestaurantRepository(context: Context) {
         val success = db.update(RestaurantDbHelper.TABLE_MENU_ITEMS, cv, "id=?", arrayOf(item.id.toString())) > 0
         if (success) {
             notifyDataChanged("update_menu")
+            WebApiSyncEngine.syncMenuItemAsync(item)
             if (broadcast) {
                 val payload = JSONObject().apply {
                     put("id", item.id)
@@ -810,6 +1037,7 @@ class RestaurantRepository(context: Context) {
         val id = db.insert(RestaurantDbHelper.TABLE_TABLES, null, cv)
         if (id != -1L) {
             notifyDataChanged("add_table")
+            WebApiSyncEngine.syncTableAsync(table.copy(id = id))
             if (broadcast) {
                 val payload = JSONObject().apply {
                     put("id", id)
@@ -831,6 +1059,7 @@ class RestaurantRepository(context: Context) {
         val success = db.update(RestaurantDbHelper.TABLE_TABLES, cv, "id=?", arrayOf(tableId.toString())) > 0
         if (success) {
             notifyDataChanged("table_status")
+            getTableById(tableId)?.let { WebApiSyncEngine.syncTableAsync(it) }
             if (broadcast) {
                 val table = getTableById(tableId)
                 val payload = JSONObject().apply {
@@ -1046,6 +1275,7 @@ class RestaurantRepository(context: Context) {
             db.setTransactionSuccessful()
 
             notifyDataChanged("order_checkout")
+            WebApiSyncEngine.syncOrderAsync(order.copy(id = orderId))
 
             if (broadcast) {
                 val itemsArray = JSONArray()
@@ -1313,6 +1543,7 @@ class RestaurantRepository(context: Context) {
                 "${emp.name} TAN CA (+${durationHours}h)"
             }
             RealtimeSyncManager.broadcast("ATTENDANCE_RECORD", payload, msg)
+            syncRetainedCloudState()
         }
 
         return resultRecord
@@ -1467,16 +1698,39 @@ class RestaurantRepository(context: Context) {
                     val note = payload.optString("note", "")
 
                     val db = dbHelper.writableDatabase
-                    val cv = ContentValues().apply {
-                        put("employee_id", empId)
-                        put("employee_name", empName)
-                        put("type", typeStr)
-                        put("method", methodStr)
-                        put("timestamp", ts)
-                        put("duration_hours", dur)
-                        put("note", note)
+                    val check = db.rawQuery(
+                        "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_name=? AND timestamp=?",
+                        arrayOf(empName, ts.toString())
+                    )
+                    var exists = false
+                    if (check.moveToFirst()) {
+                        exists = check.getInt(0) > 0
                     }
-                    db.insert(RestaurantDbHelper.TABLE_ATTENDANCE, null, cv)
+                    check.close()
+
+                    if (!exists) {
+                        val localEmp = getAllEmployees().find { it.name.equals(empName, ignoreCase = true) || it.id == empId }
+                        val cv = ContentValues().apply {
+                            put("employee_id", localEmp?.id ?: empId)
+                            put("employee_name", empName)
+                            put("type", typeStr)
+                            put("method", methodStr)
+                            put("timestamp", ts)
+                            put("duration_hours", dur)
+                            put("note", note)
+                        }
+                        db.insert(RestaurantDbHelper.TABLE_ATTENDANCE, null, cv)
+
+                        if (typeStr == AttendanceType.CHECK_OUT.name && dur > 0.0 && localEmp != null) {
+                            val updated = if (localEmp.contractType == ContractType.HOURLY) {
+                                localEmp.copy(workedHours = localEmp.workedHours + dur)
+                            } else {
+                                val addDay = if (dur >= 4.0) 1.0 else 0.5
+                                localEmp.copy(workedDays = (localEmp.workedDays + addDay).coerceAtMost(26.0))
+                            }
+                            updateEmployee(updated, broadcast = false)
+                        }
+                    }
                     notifyDataChanged("remote_attendance")
                 }
 
@@ -1570,9 +1824,11 @@ class RestaurantRepository(context: Context) {
 
                 "EMPLOYEE_ADDED" -> {
                     val db = dbHelper.writableDatabase
+                    val name = payload.optString("name")
+                    val phone = payload.optString("phone")
                     val cv = ContentValues().apply {
-                        put("name", payload.optString("name"))
-                        put("phone", payload.optString("phone"))
+                        put("name", name)
+                        put("phone", phone)
                         put("position", payload.optString("position", "Nhân viên"))
                         put("tier", payload.optString("tier", "CHINH_THUC"))
                         put("contract_type", payload.optString("contractType", "MONTHLY"))
@@ -1583,7 +1839,10 @@ class RestaurantRepository(context: Context) {
                         put("bonus", payload.optDouble("bonus", 0.0))
                         put("penalty", payload.optDouble("penalty", 0.0))
                     }
-                    db.insert(RestaurantDbHelper.TABLE_EMPLOYEES, null, cv)
+                    val updated = db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=? OR name=?", arrayOf(phone, name))
+                    if (updated == 0) {
+                        db.insert(RestaurantDbHelper.TABLE_EMPLOYEES, null, cv)
+                    }
                     notifyDataChanged("remote_employee_added")
                 }
 
@@ -1591,8 +1850,9 @@ class RestaurantRepository(context: Context) {
                     val db = dbHelper.writableDatabase
                     val id = payload.optLong("id")
                     val phone = payload.optString("phone")
+                    val name = payload.optString("name")
                     val cv = ContentValues().apply {
-                        put("name", payload.optString("name"))
+                        put("name", name)
                         put("position", payload.optString("position"))
                         put("tier", payload.optString("tier"))
                         put("contract_type", payload.optString("contractType"))
@@ -1604,9 +1864,9 @@ class RestaurantRepository(context: Context) {
                         put("penalty", payload.optDouble("penalty"))
                     }
                     if (id > 0) {
-                        db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "id=? OR phone=?", arrayOf(id.toString(), phone))
+                        db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "id=? OR phone=? OR name=?", arrayOf(id.toString(), phone, name))
                     } else {
-                        db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=?", arrayOf(phone))
+                        db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=? OR name=?", arrayOf(phone, name))
                     }
                     notifyDataChanged("remote_employee_updated")
                 }
@@ -1737,100 +1997,91 @@ class RestaurantRepository(context: Context) {
                     notifyDataChanged("remote_user_password_updated")
                 }
 
-                "REQUEST_FULL_SYNC" -> {
-                    val syncData = JSONObject().apply {
-                        val usersArr = JSONArray()
-                        for (u in getAllUsers()) {
-                            usersArr.put(JSONObject().apply {
-                                put("username", u.username)
-                                put("password", u.password)
-                                put("fullName", u.fullName)
-                                put("phone", u.phone)
-                                put("role", u.role.name)
-                                put("faceIdData", u.faceIdData ?: "")
-                            })
-                        }
-                        put("users", usersArr)
-
-                        val menuArr = JSONArray()
-                        for (m in getAllMenuItems()) {
-                            menuArr.put(JSONObject().apply {
-                                put("name", m.name)
-                                put("category", m.category)
-                                put("price", m.price)
-                                put("description", m.description)
-                                put("isAvailable", m.isAvailable)
-                            })
-                        }
-                        put("menuItems", menuArr)
-
-                        val empArr = JSONArray()
-                        for (e in getAllEmployees()) {
-                            empArr.put(JSONObject().apply {
-                                put("name", e.name)
-                                put("phone", e.phone)
-                                put("position", e.position)
-                                put("tier", e.tier.name)
-                                put("contractType", e.contractType.name)
-                                put("hourlyRate", e.hourlyRate)
-                                put("monthlySalary", e.monthlySalary)
-                                put("workedHours", e.workedHours)
-                                put("workedDays", e.workedDays)
-                                put("bonus", e.bonus)
-                                put("penalty", e.penalty)
-                            })
-                        }
-                        put("employees", empArr)
-
-                        val custArr = JSONArray()
-                        for (c in getAllCustomers()) {
-                            custArr.put(JSONObject().apply {
-                                put("name", c.name)
-                                put("phone", c.phone)
-                                put("email", c.email)
-                                put("totalSpent", c.totalSpent)
-                                put("loyaltyPoints", c.loyaltyPoints)
-                            })
-                        }
-                        put("customers", custArr)
-
-                        val tablesArr = JSONArray()
-                        for (t in getAllTables()) {
-                            tablesArr.put(JSONObject().apply {
-                                put("name", t.name)
-                                put("floor", t.floor)
-                                put("seats", t.seats)
-                                put("status", t.status.name)
-                            })
-                        }
-                        put("tables", tablesArr)
+                "USER_ROLE_UPDATED" -> {
+                    val db = dbHelper.writableDatabase
+                    val username = payload.optString("username")
+                    val roleStr = payload.optString("role", "USER")
+                    val newRole = try { UserRole.valueOf(roleStr) } catch (e: Exception) { UserRole.USER }
+                    val cv = ContentValues().apply {
+                        put("role", newRole.name)
                     }
+                    db.update(RestaurantDbHelper.TABLE_USERS, cv, "username=?", arrayOf(username))
+
+                    val saved = getSavedLoggedInUser()
+                    if (saved?.username == username) {
+                        saveLoggedInUser(saved.copy(role = newRole))
+                    }
+
+                    val emp = getAllEmployees().find { it.name.contains("@$username") || it.position.contains("@$username") }
+                    if (emp != null) {
+                        val updatedEmp = emp.copy(
+                            position = if (newRole == UserRole.ADMIN) "Quản Lý (@$username)" else "Nhân Viên (@$username)",
+                            tier = if (newRole == UserRole.ADMIN) EmployeeTier.QUAN_LY else EmployeeTier.CHINH_THUC,
+                            monthlySalary = if (newRole == UserRole.ADMIN) 15000000.0 else 8500000.0
+                        )
+                        updateEmployee(updatedEmp, broadcast = false)
+                    }
+                    notifyDataChanged("remote_user_role_updated")
+                }
+
+                "USER_DELETED" -> {
+                    val db = dbHelper.writableDatabase
+                    val username = payload.optString("username")
+                    val id = payload.optLong("id")
+                    if (username.isNotBlank()) {
+                        db.delete(RestaurantDbHelper.TABLE_USERS, "username=? OR id=?", arrayOf(username, id.toString()))
+                    } else {
+                        db.delete(RestaurantDbHelper.TABLE_USERS, "id=?", arrayOf(id.toString()))
+                    }
+                    val saved = getSavedLoggedInUser()
+                    if (saved?.username == username || saved?.id == id) {
+                        clearLoggedInUser()
+                    }
+                    notifyDataChanged("remote_user_deleted")
+                }
+
+                "REQUEST_FULL_SYNC" -> {
+                    val syncData = buildFullSyncSnapshot()
                     RealtimeSyncManager.broadcast("RESPONSE_FULL_SYNC", syncData, "Đã gửi dữ liệu đồng bộ đầy đủ")
+                    RealtimeSyncManager.publishRetainedState(syncData, "Lưu trữ bản sao dữ liệu toàn hệ thống lên Cloud")
                 }
 
                 "RESPONSE_FULL_SYNC" -> {
                     val db = dbHelper.writableDatabase
                     db.beginTransaction()
                     try {
+                        // 1. Synchronize Users (Admins, Managers, Staff)
                         val usersArr = payload.optJSONArray("users")
                         if (usersArr != null) {
                             for (i in 0 until usersArr.length()) {
                                 val obj = usersArr.getJSONObject(i)
+                                val fid = obj.optString("faceIdData")
                                 val cv = ContentValues().apply {
                                     put("username", obj.optString("username"))
                                     put("password", obj.optString("password"))
                                     put("full_name", obj.optString("fullName"))
                                     put("phone", obj.optString("phone", ""))
                                     put("role", obj.optString("role", "USER"))
-                                    val fid = obj.optString("faceIdData")
                                     if (fid.isNotBlank()) {
                                         put("face_id_data", fid)
+                                    } else {
+                                        putNull("face_id_data")
                                     }
                                 }
                                 db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
                             }
+
+                            // Keep current user session updated
+                            val saved = getSavedLoggedInUser()
+                            if (saved != null) {
+                                val updatedUser = getUserByUsername(saved.username)
+                                if (updatedUser != null) {
+                                    saveLoggedInUser(updatedUser)
+                                }
+                            }
                         }
 
+                        // 2. Synchronize Menu Items
                         val menuArr = payload.optJSONArray("menuItems")
                         if (menuArr != null) {
                             for (i in 0 until menuArr.length()) {
@@ -1850,13 +2101,15 @@ class RestaurantRepository(context: Context) {
                             }
                         }
 
+                        // 3. Synchronize Employees
                         val empArr = payload.optJSONArray("employees")
                         if (empArr != null) {
                             for (i in 0 until empArr.length()) {
                                 val obj = empArr.getJSONObject(i)
+                                val name = obj.optString("name")
                                 val phone = obj.optString("phone")
                                 val cv = ContentValues().apply {
-                                    put("name", obj.optString("name"))
+                                    put("name", name)
                                     put("phone", phone)
                                     put("position", obj.optString("position", "Nhân viên"))
                                     put("tier", obj.optString("tier", "CHINH_THUC"))
@@ -1868,13 +2121,44 @@ class RestaurantRepository(context: Context) {
                                     put("bonus", obj.optDouble("bonus", 0.0))
                                     put("penalty", obj.optDouble("penalty", 0.0))
                                 }
-                                val updated = db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=?", arrayOf(phone))
+                                val updated = db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=? OR name=?", arrayOf(phone, name))
                                 if (updated == 0) {
                                     db.insert(RestaurantDbHelper.TABLE_EMPLOYEES, null, cv)
                                 }
                             }
                         }
 
+                        // 4. Synchronize Attendance Records
+                        val attArr = payload.optJSONArray("attendance")
+                        if (attArr != null) {
+                            for (i in 0 until attArr.length()) {
+                                val obj = attArr.getJSONObject(i)
+                                val empName = obj.optString("employeeName")
+                                val ts = obj.optLong("timestamp")
+                                val check = db.rawQuery(
+                                    "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_name=? AND timestamp=?",
+                                    arrayOf(empName, ts.toString())
+                                )
+                                var exists = false
+                                if (check.moveToFirst()) exists = check.getInt(0) > 0
+                                check.close()
+
+                                if (!exists) {
+                                    val cv = ContentValues().apply {
+                                        put("employee_id", obj.optLong("employeeId"))
+                                        put("employee_name", empName)
+                                        put("type", obj.optString("type"))
+                                        put("method", obj.optString("method"))
+                                        put("timestamp", ts)
+                                        put("duration_hours", obj.optDouble("durationHours", 0.0))
+                                        put("note", obj.optString("note", ""))
+                                    }
+                                    db.insert(RestaurantDbHelper.TABLE_ATTENDANCE, null, cv)
+                                }
+                            }
+                        }
+
+                        // 5. Synchronize Customers
                         val custArr = payload.optJSONArray("customers")
                         if (custArr != null) {
                             for (i in 0 until custArr.length()) {
@@ -1894,6 +2178,7 @@ class RestaurantRepository(context: Context) {
                             }
                         }
 
+                        // 6. Synchronize Tables
                         val tablesArr = payload.optJSONArray("tables")
                         if (tablesArr != null) {
                             for (i in 0 until tablesArr.length()) {
@@ -1908,6 +2193,71 @@ class RestaurantRepository(context: Context) {
                                 val updated = db.update(RestaurantDbHelper.TABLE_TABLES, cv, "name=?", arrayOf(name))
                                 if (updated == 0) {
                                     db.insert(RestaurantDbHelper.TABLE_TABLES, null, cv)
+                                }
+                            }
+                        }
+
+                        // 7. Synchronize Settings
+                        val settingsObj = payload.optJSONObject("settings")
+                        if (settingsObj != null) {
+                            val cv = ContentValues()
+                            val keys = settingsObj.keys()
+                            while (keys.hasNext()) {
+                                val k = keys.next()
+                                cv.put(k, settingsObj.optString(k))
+                            }
+                            if (cv.size() > 0) {
+                                db.update(RestaurantDbHelper.TABLE_SYSTEM_SETTINGS, cv, "id=1", null)
+                            }
+                        }
+
+                        // 8. Synchronize Completed Orders (Revenue data)
+                        val ordersArr = payload.optJSONArray("orders")
+                        if (ordersArr != null) {
+                            for (i in 0 until ordersArr.length()) {
+                                val oObj = ordersArr.getJSONObject(i)
+                                val oTime = oObj.optLong("timestamp")
+                                val oTable = oObj.optString("tableName")
+                                val check = db.rawQuery(
+                                    "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ORDERS} WHERE table_name=? AND timestamp=?",
+                                    arrayOf(oTable, oTime.toString())
+                                )
+                                var exists = false
+                                if (check.moveToFirst()) exists = check.getInt(0) > 0
+                                check.close()
+
+                                if (!exists) {
+                                    val cv = ContentValues().apply {
+                                        put("table_id", oObj.optLong("tableId"))
+                                        put("table_name", oTable)
+                                        val cId = oObj.optLong("customerId")
+                                        if (cId > 0) put("customer_id", cId)
+                                        put("customer_name", oObj.optString("customerName", "Khách vãng lai"))
+                                        put("customer_tier_name", oObj.optString("customerTierName", "Bậc Đồng"))
+                                        put("employee_id", oObj.optLong("employeeId"))
+                                        put("employee_name", oObj.optString("employeeName", "Nhân viên"))
+                                        put("subtotal", oObj.optDouble("subtotal", 0.0))
+                                        put("discount_percent", oObj.optDouble("discountPercent", 0.0))
+                                        put("payment_method", oObj.optString("paymentMethod", "Tiền mặt"))
+                                        put("status", oObj.optString("status", "COMPLETED"))
+                                        put("timestamp", oTime)
+                                    }
+                                    val newOrderId = db.insert(RestaurantDbHelper.TABLE_ORDERS, null, cv)
+                                    val itemsArr = oObj.optJSONArray("items")
+                                    if (itemsArr != null && newOrderId != -1L) {
+                                        for (j in 0 until itemsArr.length()) {
+                                            val itObj = itemsArr.getJSONObject(j)
+                                            val itCv = ContentValues().apply {
+                                                put("order_id", newOrderId)
+                                                put("menu_item_id", itObj.optLong("menuItemId"))
+                                                put("menu_item_name", itObj.optString("menuItemName"))
+                                                put("price", itObj.optDouble("price", 0.0))
+                                                put("quantity", itObj.optInt("quantity", 1))
+                                                put("note", itObj.optString("note", ""))
+                                            }
+                                            db.insert(RestaurantDbHelper.TABLE_ORDER_ITEMS, null, itCv)
+                                        }
+                                    }
                                 }
                             }
                         }

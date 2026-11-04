@@ -324,8 +324,48 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            val isCloudOnline by com.example.adr_nhom_da.data.remote.RealtimeSyncManager.isCloudConnected.collectAsState()
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .clickable {
+                        com.example.adr_nhom_da.data.remote.RealtimeSyncManager.sendPing()
+                        com.example.adr_nhom_da.data.remote.RealtimeSyncManager.broadcast(
+                            "REQUEST_FULL_SYNC",
+                            org.json.JSONObject(),
+                            "Đồng bộ tài khoản đăng nhập"
+                        )
+                    }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(if (isCloudOnline) Color(0xFF00E676) else Color(0xFFFFB300))
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    if (isCloudOnline) "Cloud Realtime: Đã kết nối (Chạm đồng bộ)" else "Cloud Realtime: Đang kết nối...",
+                    fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.85f)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    Icons.Default.Sync,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(13.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             Text(
-                "Hệ Thống Nhà Hàng Thông Minh • Made with ❤️",
+                "Golden Spoon POS • Đồng bộ đa thiết bị tức thì",
                 fontSize = 11.sp,
                 color = Color.White.copy(alpha = 0.5f)
             )
