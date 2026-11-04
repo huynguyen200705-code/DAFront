@@ -12,11 +12,16 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object RestaurantApiClient {
-    // Default to current Wi-Fi LAN IP so real devices can connect immediately
+    // URL Web API máy chủ đang kết nối (Tự động chuyển đổi giữa Local và Cloud)
     var baseUrl: String = "http://192.168.0.172:5276"
+    var localUrl: String = "http://192.168.0.172:5276"
+    var cloudUrl: String = "https://da-restaurant-api.onrender.com"
+    var emulatorUrl: String = "http://10.0.2.2:5276"
+    var radminUrl: String = "http://26.38.230.253:5276"
+    var activeServerLabel: String = "🏠 Local Web API (Wi-Fi)"
     var authToken: String? = null
 
-    fun updateBaseUrl(rawUrl: String) {
+    fun cleanUrl(rawUrl: String): String {
         var cleaned = rawUrl.trim()
         if (cleaned.endsWith("/api/")) {
             cleaned = cleaned.removeSuffix("/api/")
@@ -26,7 +31,11 @@ object RestaurantApiClient {
         if (cleaned.endsWith("/")) {
             cleaned = cleaned.dropLast(1)
         }
-        baseUrl = cleaned
+        return cleaned
+    }
+
+    fun updateBaseUrl(rawUrl: String) {
+        baseUrl = cleanUrl(rawUrl)
     }
 
     fun init(context: android.content.Context) {
@@ -34,12 +43,23 @@ object RestaurantApiClient {
             context.assets.open(".env").bufferedReader().useLines { lines ->
                 for (line in lines) {
                     val trimmed = line.trim()
-                    if (trimmed.startsWith("BASE_URL=") && !trimmed.startsWith("#")) {
-                        val urlVal = trimmed.substringAfter("BASE_URL=").trim()
-                        if (urlVal.isNotBlank()) {
-                            updateBaseUrl(urlVal)
-                            break
-                        }
+                    if (trimmed.startsWith("#") || trimmed.isBlank()) continue
+
+                    if (trimmed.startsWith("BASE_URL=")) {
+                        val v = trimmed.substringAfter("BASE_URL=").trim()
+                        if (v.isNotBlank()) updateBaseUrl(v)
+                    } else if (trimmed.startsWith("LOCAL_URL=")) {
+                        val v = trimmed.substringAfter("LOCAL_URL=").trim()
+                        if (v.isNotBlank()) localUrl = cleanUrl(v)
+                    } else if (trimmed.startsWith("CLOUD_URL=")) {
+                        val v = trimmed.substringAfter("CLOUD_URL=").trim()
+                        if (v.isNotBlank()) cloudUrl = cleanUrl(v)
+                    } else if (trimmed.startsWith("EMULATOR_URL=")) {
+                        val v = trimmed.substringAfter("EMULATOR_URL=").trim()
+                        if (v.isNotBlank()) emulatorUrl = cleanUrl(v)
+                    } else if (trimmed.startsWith("RADMIN_URL=")) {
+                        val v = trimmed.substringAfter("RADMIN_URL=").trim()
+                        if (v.isNotBlank()) radminUrl = cleanUrl(v)
                     }
                 }
             }

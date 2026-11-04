@@ -33,14 +33,19 @@ object WebApiSyncEngine {
     private var isEngineRunning = false
     private var syncWorkerThread: Thread? = null
 
-    // Danh sách IP dự phòng kết nối tới Web API
-    private val candidateBaseUrls = listOf(
-        "http://192.168.0.172:5276",   // Wi-Fi LAN hiện tại của máy tính
-        "http://10.0.2.2:5276",        // Android Emulator
-        "http://26.38.230.253:5276",   // Radmin VPN
-        "http://10.168.222.213:5276",  // Wi-Fi LAN cũ
-        "http://127.0.0.1:5276"
-    )
+    // Danh sách URL song song: Local Wi-Fi PC & Cloud Render (Tự động nhận diện)
+    val candidateBaseUrls: List<String>
+        get() = listOfNotNull(
+            RestaurantApiClient.baseUrl,
+            RestaurantApiClient.localUrl,
+            RestaurantApiClient.cloudUrl,
+            RestaurantApiClient.emulatorUrl,
+            RestaurantApiClient.radminUrl,
+            "http://192.168.0.172:5276",
+            "http://10.0.2.2:5276",
+            "http://26.38.230.253:5276",
+            "http://127.0.0.1:5276"
+        ).distinct().filter { it.isNotBlank() }
 
     fun start(context: Context, repository: RestaurantRepository) {
         if (isEngineRunning) return
@@ -220,19 +225,25 @@ object WebApiSyncEngine {
                         val pingUrl = URL("$baseUrl/api/sync/ping")
                         val pingConn = (pingUrl.openConnection() as HttpURLConnection).apply {
                             requestMethod = "GET"
-                            connectTimeout = 2500
-                            readTimeout = 2500
+                            connectTimeout = 2000
+                            readTimeout = 2000
                         }
                         if (pingConn.responseCode == 200) {
                             connectedUrl = baseUrl
                             RestaurantApiClient.baseUrl = baseUrl
+                            RestaurantApiClient.activeServerLabel = when {
+                                baseUrl.startsWith("https://") -> "🌐 Cloud Server ($baseUrl)"
+                                baseUrl.contains("10.0.2.2") -> "💻 Android Emulator ($baseUrl)"
+                                else -> "🏠 Local Web API ($baseUrl)"
+                            }
+                            Log.i(TAG, "Đã liên kết song song Web API: ${RestaurantApiClient.activeServerLabel}")
                             break
                         }
                     } catch (ignored: Exception) {}
                 }
 
                 if (connectedUrl == null) {
-                    onResult?.invoke(false, "Không thể kết nối đến Web API (hãy đảm bảo run.bat đã bật)")
+                    onResult?.invoke(false, "Không thể kết nối Web API (kiểm tra run.bat hoặc mạng Internet Cloud)")
                     return@thread
                 }
 
