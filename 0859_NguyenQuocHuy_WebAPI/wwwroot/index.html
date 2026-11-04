@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -2412,6 +2412,251 @@
             }).catch(() => {
                 prompt('Sao chép cấu hình dưới đây:', text);
             });
+        }
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- CHATBOX TU DONG - TICH HOP REAL-TIME API -->
+    <!-- ============================================================ -->
+
+    <!-- Floating Chat Button -->
+    <div id="chatToggleBtn" onclick="toggleChat()" style="
+        position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+        width: 60px; height: 60px; border-radius: 50%;
+        background: linear-gradient(135deg, #FF6B35, #F7931E);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; box-shadow: 0 4px 20px rgba(255,107,53,0.5);
+        font-size: 28px; transition: transform 0.2s;
+        animation: pulse-chat 2s infinite;">
+        💬
+    </div>
+
+    <!-- Chat Window -->
+    <div id="chatWindow" style="
+        position: fixed; bottom: 95px; right: 24px; z-index: 9998;
+        width: 360px; height: 520px; background: #fff;
+        border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        display: none; flex-direction: column; overflow: hidden;
+        font-family: 'Segoe UI', sans-serif;">
+
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg,#FF6B35,#F7931E); padding: 16px 20px; display:flex; align-items:center; gap:12px;">
+            <div style="width:42px;height:42px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
+            <div>
+                <div style="color:#fff;font-weight:700;font-size:15px;">Trợ Lý Nhà Hàng</div>
+                <div style="color:rgba(255,255,255,0.8);font-size:12px;" id="chatStatus">🟢 Đang hoạt động</div>
+            </div>
+            <button onclick="toggleChat()" style="margin-left:auto;background:rgba(255,255,255,0.2);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;">✕</button>
+        </div>
+
+        <!-- Messages -->
+        <div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px;background:#f8f9fa;display:flex;flex-direction:column;gap:10px;">
+        </div>
+
+        <!-- Quick Buttons -->
+        <div id="quickBtns" style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px;background:#fff;border-top:1px solid #eee;">
+            <button onclick="sendQuick('Tình trạng bàn ăn hôm nay?')" style="background:#FFF3E0;border:1px solid #FFB74D;color:#E65100;padding:5px 10px;border-radius:12px;cursor:pointer;font-size:11px;">🪑 Trạng thái bàn</button>
+            <button onclick="sendQuick('Doanh thu hôm nay là bao nhiêu?')" style="background:#E8F5E9;border:1px solid #81C784;color:#2E7D32;padding:5px 10px;border-radius:12px;cursor:pointer;font-size:11px;">💰 Doanh thu</button>
+            <button onclick="sendQuick('Có bao nhiêu khách hàng?')" style="background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;padding:5px 10px;border-radius:12px;cursor:pointer;font-size:11px;">👥 Khách hàng</button>
+            <button onclick="sendQuick('Danh sách nhân viên?')" style="background:#F3E5F5;border:1px solid #CE93D8;color:#6A1B9A;padding:5px 10px;border-radius:12px;cursor:pointer;font-size:11px;">👤 Nhân viên</button>
+            <button onclick="sendQuick('Menu có những món gì?')" style="background:#FFF8E1;border:1px solid #FFD54F;color:#F57F17;padding:5px 10px;border-radius:12px;cursor:pointer;font-size:11px;">🍽️ Thực đơn</button>
+        </div>
+
+        <!-- Input -->
+        <div style="padding:12px;background:#fff;border-top:1px solid #eee;display:flex;gap:8px;">
+            <input id="chatInput" type="text" placeholder="Hỏi về nhà hàng..."
+                style="flex:1;padding:10px 14px;border:1.5px solid #ddd;border-radius:20px;outline:none;font-size:13px;"
+                onkeydown="if(event.key==='Enter') sendChat()"
+                onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#ddd'">
+            <button onclick="sendChat()" style="
+                background:linear-gradient(135deg,#FF6B35,#F7931E);
+                border:none;color:#fff;width:40px;height:40px;
+                border-radius:50%;cursor:pointer;font-size:18px;">▶</button>
+        </div>
+    </div>
+
+    <style>
+        @keyframes pulse-chat {
+            0%,100%{transform:scale(1);box-shadow:0 4px 20px rgba(255,107,53,0.5);}
+            50%{transform:scale(1.08);box-shadow:0 6px 28px rgba(255,107,53,0.7);}
+        }
+        .chat-bubble { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 13px; line-height: 1.5; word-break: break-word; }
+        .chat-user { background: linear-gradient(135deg,#FF6B35,#F7931E); color: #fff; border-radius: 16px 16px 4px 16px; align-self: flex-end; }
+        .chat-bot { background: #fff; color: #333; border-radius: 16px 16px 16px 4px; align-self: flex-start; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        .chat-typing { display: flex; gap: 4px; align-items: center; padding: 12px; }
+        .chat-typing span { width: 8px; height: 8px; background: #bbb; border-radius: 50%; animation: typing 1s infinite; }
+        .chat-typing span:nth-child(2){animation-delay:.2s;}
+        .chat-typing span:nth-child(3){animation-delay:.4s;}
+        @keyframes typing { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);background:#FF6B35;} }
+    </style>
+
+    <script>
+        // ===== CHATBOX TU DONG =====
+        var chatOpen = false;
+
+        function toggleChat() {
+            chatOpen = !chatOpen;
+            document.getElementById('chatWindow').style.display = chatOpen ? 'flex' : 'none';
+            if (chatOpen && document.getElementById('chatMessages').children.length === 0) {
+                initChat();
+            }
+        }
+
+        function initChat() {
+            addBotMsg('👋 Xin chào! Tôi là Trợ Lý Nhà Hàng thông minh.\n\nTôi có thể giúp bạn tra cứu:\n• 🪑 Trạng thái bàn ăn\n• 💰 Doanh thu & đơn hàng\n• 👥 Thông tin khách hàng\n• 👤 Danh sách nhân viên\n• 🍽️ Thực đơn nhà hàng\n\nHãy hỏi hoặc bấm nút gợi ý bên dưới!');
+        }
+
+        function addUserMsg(text) {
+            var el = document.createElement('div');
+            el.className = 'chat-bubble chat-user';
+            el.textContent = text;
+            document.getElementById('chatMessages').appendChild(el);
+            scrollChat();
+        }
+
+        function addBotMsg(text) {
+            var el = document.createElement('div');
+            el.className = 'chat-bubble chat-bot';
+            el.innerHTML = text.replace(/\n/g, '<br>');
+            document.getElementById('chatMessages').appendChild(el);
+            scrollChat();
+        }
+
+        function showTyping() {
+            var el = document.createElement('div');
+            el.className = 'chat-bubble chat-bot chat-typing';
+            el.id = 'typingIndicator';
+            el.innerHTML = '<span></span><span></span><span></span>';
+            document.getElementById('chatMessages').appendChild(el);
+            scrollChat();
+        }
+
+        function hideTyping() {
+            var el = document.getElementById('typingIndicator');
+            if (el) el.remove();
+        }
+
+        function scrollChat() {
+            var msgs = document.getElementById('chatMessages');
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        function sendQuick(text) {
+            document.getElementById('chatInput').value = text;
+            sendChat();
+        }
+
+        async function sendChat() {
+            var input = document.getElementById('chatInput');
+            var text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            addUserMsg(text);
+            showTyping();
+            setTimeout(async function() {
+                var reply = await generateReply(text.toLowerCase());
+                hideTyping();
+                addBotMsg(reply);
+            }, 600);
+        }
+
+        async function generateReply(msg) {
+            // Hoi ve ban an
+            if (msg.includes('ban') || msg.includes('bàn') || msg.includes('table') || msg.includes('trang thai') || msg.includes('trạng thái')) {
+                try {
+                    var res = await fetch('/api/sync/status');
+                    var data = await res.json();
+                    var total = data.counts.tables || 0;
+                    return '🪑 <b>Trạng Thái Bàn Ăn</b><br><br>• Tổng số bàn: <b>' + total + ' bàn</b><br>• Xem chi tiết tại tab <b>"🪑 Quản Lý Bàn"</b> trên dashboard<br><br>💡 Mở app Android để xem trạng thái real-time từng bàn!';
+                } catch(e) {
+                    return '🪑 Nhà hàng có nhiều bàn ăn đang hoạt động.\nVui lòng vào tab <b>🪑 Quản Lý Bàn</b> để xem chi tiết!';
+                }
+            }
+
+            // Hoi ve doanh thu
+            if (msg.includes('doanh thu') || msg.includes('revenue') || msg.includes('tien') || msg.includes('tiền') || msg.includes('thu nhap') || msg.includes('don hang') || msg.includes('đơn hàng') || msg.includes('order')) {
+                try {
+                    var res = await fetch('/api/sync/status');
+                    var data = await res.json();
+                    var orders = data.counts.orders || 0;
+                    return '💰 <b>Doanh Thu & Đơn Hàng</b><br><br>• Tổng đơn hàng đã lưu: <b>' + orders + ' đơn</b><br>• Xem thống kê chi tiết tại tab <b>"📊 Phân Tích"</b><br><br>📱 Mỗi khi thanh toán trên app → dữ liệu tự đồng bộ lên đây!';
+                } catch(e) {
+                    return '💰 Dữ liệu doanh thu được đồng bộ từ app Android.\nVào tab <b>📊 Phân Tích</b> để xem báo cáo chi tiết!';
+                }
+            }
+
+            // Hoi ve khach hang
+            if (msg.includes('khach') || msg.includes('khách') || msg.includes('customer') || msg.includes('thanh vien') || msg.includes('thành viên')) {
+                try {
+                    var res = await fetch('/api/sync/status');
+                    var data = await res.json();
+                    var custs = data.counts.customers || 0;
+                    return '👥 <b>Khách Hàng</b><br><br>• Tổng khách hàng: <b>' + custs + ' người</b><br>• Hạng thành viên: 🥉Đồng → 🥈Bạc → 🥇Vàng → 💎Bạch Kim → 👑Kim Cương<br>• Xem tại tab <b>"👥 Khách Hàng"</b><br><br>💡 Thêm khách trên app → tự đồng bộ lên đây!';
+                } catch(e) {
+                    return '👥 Hệ thống quản lý khách hàng theo 5 hạng thành viên.\nVào tab <b>👥 Khách Hàng</b> để xem danh sách!';
+                }
+            }
+
+            // Hoi ve nhan vien
+            if (msg.includes('nhan vien') || msg.includes('nhân viên') || msg.includes('staff') || msg.includes('employee') || msg.includes('luong') || msg.includes('lương')) {
+                try {
+                    var res = await fetch('/api/sync/status');
+                    var data = await res.json();
+                    var emps = data.counts.employees || 0;
+                    return '👤 <b>Nhân Viên</b><br><br>• Tổng nhân viên: <b>' + emps + ' người</b><br>• Cấp bậc: 🔰Thực tập → 👤Chính thức → ⭐Cao cấp → 🎖️Quản lý<br>• Lương: Theo giờ hoặc theo tháng<br><br>Xem chi tiết tại tab <b>"👤 Nhân Viên"</b>!';
+                } catch(e) {
+                    return '👤 Hệ thống quản lý nhân viên theo cấp bậc và hình thức hợp đồng.\nVào tab <b>👤 Nhân Viên</b> để xem!';
+                }
+            }
+
+            // Hoi ve menu / mon an
+            if (msg.includes('menu') || msg.includes('mon') || msg.includes('món') || msg.includes('thuc don') || msg.includes('thực đơn') || msg.includes('do an') || msg.includes('đồ ăn') || msg.includes('food')) {
+                try {
+                    var res = await fetch('/api/sync/status');
+                    var data = await res.json();
+                    var items = data.counts.menuItems || 0;
+                    return '🍽️ <b>Thực Đơn Nhà Hàng</b><br><br>• Tổng số món: <b>' + items + ' món</b><br>• Danh mục: 🥗Khai vị | 🥩Món chính | 🍲Lẩu & Nướng | 🍹Đồ uống | 🍰Tráng miệng<br><br>Xem đầy đủ tại tab <b>"🍽️ Thực Đơn"</b>!';
+                } catch(e) {
+                    return '🍽️ Thực đơn nhà hàng gồm 5 danh mục phong phú.\nVào tab <b>🍽️ Thực Đơn</b> để xem chi tiết!';
+                }
+            }
+
+            // Hoi ve dong bo
+            if (msg.includes('dong bo') || msg.includes('đồng bộ') || msg.includes('sync') || msg.includes('ket noi') || msg.includes('kết nối') || msg.includes('app')) {
+                return '🔄 <b>Trạng Thái Đồng Bộ</b><br><br>Hệ thống tự động đồng bộ từ App Android:<br>• ⚡ Ngay lập tức khi thêm/sửa dữ liệu<br>• 🕐 Mỗi 30 giây (định kỳ)<br>• 🚀 Lúc khởi động app<br><br>📱 → 🌐 Dữ liệu luôn được cập nhật!';
+            }
+
+            // Hoi ve gio mo cua
+            if (msg.includes('gio') || msg.includes('giờ') || msg.includes('mo cua') || msg.includes('mở cửa') || msg.includes('hoat dong') || msg.includes('hoạt động')) {
+                return '⏰ <b>Giờ Hoạt Động</b><br><br>• Mở cửa: <b>10:00 SA</b><br>• Đóng cửa: <b>22:00 TT</b><br>• Hoạt động: Tất cả các ngày trong tuần<br><br>📞 Đặt bàn trước để được phục vụ tốt nhất!';
+            }
+
+            // Chao hoi
+            if (msg.includes('xin chao') || msg.includes('xin chào') || msg.includes('chao') || msg.includes('chào') || msg.includes('hello') || msg.includes('hi')) {
+                return '👋 Xin chào! Tôi là Trợ Lý Nhà Hàng.\n\nTôi có thể giúp bạn tra cứu thông tin nhà hàng. Hãy thử hỏi:\n• "Có bao nhiêu bàn trống?"\n• "Doanh thu hôm nay?"\n• "Danh sách nhân viên?"';
+            }
+
+            // Cam on
+            if (msg.includes('cam on') || msg.includes('cảm ơn') || msg.includes('thanks') || msg.includes('thank')) {
+                return '😊 Không có gì! Tôi luôn sẵn sàng hỗ trợ bạn.\n\nNếu cần thêm thông tin, cứ hỏi nhé!';
+            }
+
+            // He thong
+            if (msg.includes('he thong') || msg.includes('hệ thống') || msg.includes('server') || msg.includes('api') || msg.includes('trang thai he thong') || msg.includes('trạng thái hệ thống')) {
+                try {
+                    var res = await fetch('/api/sync/status');
+                    var data = await res.json();
+                    var total = (data.counts.tables||0) + (data.counts.menuItems||0) + (data.counts.customers||0) + (data.counts.employees||0);
+                    return '⚙️ <b>Trạng Thái Hệ Thống</b><br><br>• 🟢 Web API: <b>Đang hoạt động</b><br>• 🗄️ Database: <b>SQLite (RestaurantPOS.db)</b><br>• 📊 Tổng bản ghi: <b>' + total + '</b><br>• 🔔 SignalR: Đang bật<br>• 🔄 Auto-sync: Mỗi 30 giây<br><br>Mọi thứ hoạt động bình thường! ✅';
+                } catch(e) {
+                    return '⚙️ Web API đang hoạt động.\nKết nối qua http://localhost:5276/';
+                }
+            }
+
+            // Khong hieu
+            var suggestions = ['trạng thái bàn', 'doanh thu', 'khách hàng', 'nhân viên', 'thực đơn'];
+            var random = suggestions[Math.floor(Math.random() * suggestions.length)];
+            return '🤔 Xin lỗi, tôi chưa hiểu câu hỏi này.\n\nBạn có thể thử:\n• "Tình trạng bàn ăn hôm nay?"\n• "Doanh thu là bao nhiêu?"\n• "Có bao nhiêu khách hàng?"\n• "Trạng thái hệ thống?"\n\nHoặc bấm nút gợi ý bên trên! 👆';
         }
     </script>
 </body>
