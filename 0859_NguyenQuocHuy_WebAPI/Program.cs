@@ -25,8 +25,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     if (useSqlite || string.IsNullOrEmpty(connectionString))
     {
-        // SQLite — không cần cài SQL Server, file DB lưu cùng thư mục app
-        options.UseSqlite("Data Source=RestaurantPOS.db");
+        // SQLite — lưu cố định tại thư mục ContentRoot của dự án để đảm bảo dữ liệu luôn đồng nhất
+        var dbPath = Path.Combine(builder.Environment.ContentRootPath, "RestaurantPOS.db");
+        options.UseSqlite($"Data Source={dbPath}");
     }
     else
     {

@@ -293,6 +293,11 @@
                             <i class="fa-solid fa-mobile-screen-button me-2"></i>Smart Auth OTP
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="sql-tab" data-bs-toggle="tab" data-bs-target="#sql-pane" type="button" role="tab" onclick="loadSqlDatabaseStatus()">
+                            <i class="fa-solid fa-database me-2 text-warning"></i>Quản Lý CSDL SQL
+                        </button>
+                    </li>
                 </ul>
             </div>
 
@@ -839,9 +844,110 @@
                             <button class="btn btn-sm btn-outline-danger" onclick="clearTableActiveOrders()"><i class="fa-solid fa-trash me-1"></i>Dọn bàn / Xóa order</button>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
+
+                    <!-- TAB 9: QUẢN LÝ CƠ SỞ DỮ LIỆU SQL -->
+                    <div class="tab-pane fade" id="sql-pane" role="tabpanel">
+                        <div class="row g-4">
+                            <!-- SQL Status & Export -->
+                            <div class="col-lg-5">
+                                <div class="card border border-warning-subtle shadow-sm rounded-4 p-4 h-100">
+                                    <div class="d-flex align-items-center gap-3 mb-3">
+                                        <div class="metric-icon bg-warning text-dark"><i class="fa-solid fa-database"></i></div>
+                                        <div>
+                                            <h5 class="fw-bold mb-0">Hệ Thống Cơ Sở Dữ Liệu SQL</h5>
+                                            <small class="text-muted">Quản lý kết nối, lưu trữ và sao lưu dữ liệu toàn bộ hệ thống</small>
+                                        </div>
+                                    </div>
+                                    <hr>
+
+                                    <div class="mb-3">
+                                        <label class="form-label small text-muted fw-semibold">HỆ QUẢN TRỊ CSDL HIỆN TẠI</label>
+                                        <div class="p-3 bg-light rounded-3 border">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="fw-bold" id="sqlDatabaseType">Đang kiểm tra...</span>
+                                                <span class="badge bg-success" id="sqlStatusBadge">ONLINE</span>
+                                            </div>
+                                            <small class="text-muted" id="sqlConnectionInfo">Tệp dữ liệu: RestaurantPOS.db</small>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-grid gap-2 mb-3">
+                                        <a href="/api/sync/export-sql" class="btn btn-warning text-dark fw-bold py-2 shadow-sm" download>
+                                            <i class="fa-solid fa-file-arrow-down me-2"></i>Tải Script SQL Toàn Bộ Dữ Liệu (.sql)
+                                        </a>
+                                        <button class="btn btn-outline-primary fw-semibold" onclick="loadSqlDatabaseStatus()">
+                                            <i class="fa-solid fa-arrows-rotate me-2"></i>Làm Mới Trạng Thái CSDL
+                                        </button>
+                                        <a href="/swagger" target="_blank" class="btn btn-outline-secondary btn-sm">
+                                            <i class="fa-solid fa-book-open me-2"></i>Mở Swagger API Explorer
+                                        </a>
+                                    </div>
+
+                                    <div class="alert alert-info py-2 px-3 small mb-0 rounded-3">
+                                        <i class="fa-solid fa-circle-info me-2"></i>File script <code>DA_Restaurant_Database_Full.sql</code> đã được tạo sẵn tại thư mục gốc dự án để bạn có thể mở và thực thi trực tiếp trên <strong>SQL Server Management Studio (SSMS)</strong>.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Table Rows & Data Summary -->
+                            <div class="col-lg-7">
+                                <div class="card border border-slate-200 shadow-sm rounded-4 p-4 h-100">
+                                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-table-list me-2 text-primary"></i>Thống Kê Dữ Liệu Đang Lưu Trữ Trong SQL</h5>
+                                    <div class="row g-3" id="sqlTableStatsGrid">
+                                        <div class="col-6 col-md-4">
+                                            <div class="p-3 bg-light rounded-3 border text-center">
+                                                <div class="fs-4 fw-bold text-primary" id="sqlCountTables">--</div>
+                                                <small class="text-muted fw-semibold">Bàn Ăn (restaurant_tables)</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="p-3 bg-light rounded-3 border text-center">
+                                                <div class="fs-4 fw-bold text-success" id="sqlCountMenuItems">--</div>
+                                                <small class="text-muted fw-semibold">Món Ăn (menu_items)</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="p-3 bg-light rounded-3 border text-center">
+                                                <div class="fs-4 fw-bold text-info" id="sqlCountCustomers">--</div>
+                                                <small class="text-muted fw-semibold">Khách Hàng (customers)</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="p-3 bg-light rounded-3 border text-center">
+                                                <div class="fs-4 fw-bold text-warning" id="sqlCountEmployees">--</div>
+                                                <small class="text-muted fw-semibold">Nhân Viên (employees)</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="p-3 bg-light rounded-3 border text-center">
+                                                <div class="fs-4 fw-bold text-danger" id="sqlCountOrders">--</div>
+                                                <small class="text-muted fw-semibold">Hóa Đơn (orders)</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="p-3 bg-light rounded-3 border text-center">
+                                                <div class="fs-4 fw-bold text-secondary" id="sqlCountAttendance">--</div>
+                                                <small class="text-muted fw-semibold">Chấm Công (attendance)</small>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-4">
+
+                                    <h6 class="fw-bold mb-2"><i class="fa-solid fa-sliders me-2 text-secondary"></i>Chuyển Đổi SQLite / Microsoft SQL Server</h6>
+                                    <p class="small text-muted mb-2">Trong file <code>appsettings.json</code>, bạn có thể dễ dàng chuyển đổi CSDL theo ý muốn:</p>
+                                    <pre class="bg-dark text-light p-3 rounded-3 small mb-0"><code>// Dùng SQLite (Mặc định, không cần cài SQL Server):
+"UseSqlite": true
+
+// Chuyển sang Microsoft SQL Server:
+"UseSqlite": false,
+"ConnectionStrings": {
+  "DefaultConnection": "Server=.\\SQLEXPRESS;Database=RestaurantPOS_DB;Trusted_Connection=True;TrustServerCertificate=True"
+}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
     </div>
 
     <!-- Modal Thêm Bàn Mới -->
@@ -1120,6 +1226,7 @@
             loadAttendance();
             loadCustomers();
             loadUsers();
+            loadSqlDatabaseStatus();
             loadRecentNotifications();
             initRealtimeNotifications();
 
@@ -1805,6 +1912,38 @@
                 }
             } catch (e) {
                 alert('Không thể xóa tài khoản.');
+            }
+        }
+
+        async function loadSqlDatabaseStatus() {
+            try {
+                const res = await fetch('/api/sync/status');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.success) {
+                    const dbTypeEl = document.getElementById('sqlDatabaseType');
+                    const connInfoEl = document.getElementById('sqlConnectionInfo');
+                    const badgeEl = document.getElementById('sqlStatusBadge');
+
+                    if (dbTypeEl) dbTypeEl.textContent = data.databaseType;
+                    if (connInfoEl) connInfoEl.textContent = `Nguồn: ${data.connectionInfo}`;
+                    if (badgeEl) badgeEl.textContent = data.status || 'ONLINE';
+
+                    if (data.counts) {
+                        const setVal = (id, val) => {
+                            const el = document.getElementById(id);
+                            if (el) el.textContent = val ?? 0;
+                        };
+                        setVal('sqlCountTables', data.counts.tables);
+                        setVal('sqlCountMenuItems', data.counts.menuItems);
+                        setVal('sqlCountCustomers', data.counts.customers);
+                        setVal('sqlCountEmployees', data.counts.employees);
+                        setVal('sqlCountOrders', data.counts.orders);
+                        setVal('sqlCountAttendance', data.counts.attendance);
+                    }
+                }
+            } catch (e) {
+                console.error("Lỗi khi tải trạng thái CSDL SQL:", e);
             }
         }
 
