@@ -8,6 +8,7 @@ import com.example.adr_nhom_da.data.model.Employee
 import com.example.adr_nhom_da.data.model.MenuItem
 import com.example.adr_nhom_da.data.model.Order
 import com.example.adr_nhom_da.data.model.RestaurantTable
+import com.example.adr_nhom_da.data.model.User
 import com.example.adr_nhom_da.data.repository.RestaurantRepository
 import org.json.JSONArray
 import org.json.JSONObject
@@ -34,9 +35,10 @@ object WebApiSyncEngine {
 
     // Danh sách IP dự phòng kết nối tới Web API
     private val candidateBaseUrls = listOf(
+        "http://192.168.0.172:5276",   // Wi-Fi LAN hiện tại của máy tính
         "http://10.0.2.2:5276",        // Android Emulator
-        "http://10.168.222.213:5276",  // Wi-Fi LAN hiện tại của máy tính
         "http://26.38.230.253:5276",   // Radmin VPN
+        "http://10.168.222.213:5276",  // Wi-Fi LAN cũ
         "http://127.0.0.1:5276"
     )
 
@@ -86,6 +88,7 @@ object WebApiSyncEngine {
                 val employees = repository.getAllEmployees()
                 val orders = repository.getAllCompletedOrders()
                 val attendance = repository.getAllAttendanceRecords()
+                val users = repository.getAllUsers()
 
                 // 1. Chuẩn bị JSON Upload
                 val tablesArr = JSONArray()
@@ -185,6 +188,17 @@ object WebApiSyncEngine {
                     })
                 }
 
+                val usersArr = JSONArray()
+                users.forEach { u ->
+                    usersArr.put(JSONObject().apply {
+                        put("username", u.username)
+                        put("password", u.password)
+                        put("fullName", u.fullName)
+                        put("phone", u.phone)
+                        put("role", u.role.name)
+                    })
+                }
+
                 val payload = JSONObject().apply {
                     put("tables", tablesArr)
                     put("menuItems", menuArr)
@@ -192,6 +206,7 @@ object WebApiSyncEngine {
                     put("employees", empArr)
                     put("attendance", attArr)
                     put("orders", ordersArr)
+                    put("users", usersArr)
                 }
 
                 val payloadString = payload.toString()
@@ -330,6 +345,17 @@ object WebApiSyncEngine {
             put("paymentMethod", order.paymentMethod)
             put("staffName", order.employeeName)
             put("createdAt", order.timestamp)
+        })
+    }
+
+    fun syncUserAsync(user: User) {
+        postRecordAsync("/api/sync/user", JSONObject().apply {
+            put("username", user.username)
+            put("password", user.password)
+            put("fullName", user.fullName)
+            put("phone", user.phone)
+            put("role", user.role.name)
+            put("faceIdData", user.faceIdData ?: "")
         })
     }
 

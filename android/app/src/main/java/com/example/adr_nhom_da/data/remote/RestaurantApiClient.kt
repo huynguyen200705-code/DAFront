@@ -13,7 +13,7 @@ import java.net.URL
 
 object RestaurantApiClient {
     // Default to current Wi-Fi LAN IP so real devices can connect immediately
-    var baseUrl: String = "http://10.15.187.151:5276"
+    var baseUrl: String = "http://192.168.0.172:5276"
     var authToken: String? = null
 
     fun updateBaseUrl(rawUrl: String) {

@@ -236,6 +236,7 @@ class RestaurantRepository(context: Context) {
                 }
                 RealtimeSyncManager.broadcast("USER_REGISTERED", payload, "Tài khoản mới: @${user.username} (${user.fullName})")
                 syncRetainedCloudState()
+                com.example.adr_nhom_da.data.remote.WebApiSyncEngine.syncUserAsync(user)
             }
             return true
         }
