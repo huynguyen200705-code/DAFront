@@ -244,6 +244,58 @@ class RestaurantRepository(context: Context) {
         return updated
     }
 
+    fun deleteUserFaceId(username: String, broadcast: Boolean = true): Boolean {
+        val db = dbHelper.writableDatabase
+        val cv = ContentValues().apply {
+            putNull("face_id_data")
+        }
+        val updated = db.update(RestaurantDbHelper.TABLE_USERS, cv, "username=?", arrayOf(username)) > 0
+        if (updated) {
+            val saved = getSavedLoggedInUser()
+            if (saved?.username == username) {
+                saveLoggedInUser(saved.copy(faceIdData = null))
+            }
+            notifyDataChanged("user_face_id_deleted")
+            if (broadcast) {
+                val payload = JSONObject().apply {
+                    put("username", username)
+                    put("faceIdData", "")
+                }
+                RealtimeSyncManager.broadcast("USER_FACE_ID_UPDATED", payload, "Hủy liên kết Face ID cho @$username")
+            }
+        }
+        return updated
+    }
+
+    fun updateUserProfile(userId: Long, newFullName: String, newPhone: String, broadcast: Boolean = true): Boolean {
+        val db = dbHelper.writableDatabase
+        val cv = ContentValues().apply {
+            put("full_name", newFullName)
+            put("phone", newPhone)
+        }
+        val updated = db.update(RestaurantDbHelper.TABLE_USERS, cv, "id=?", arrayOf(userId.toString())) > 0
+        if (updated) {
+            val saved = getSavedLoggedInUser()
+            if (saved?.id == userId) {
+                saveLoggedInUser(saved.copy(fullName = newFullName, phone = newPhone))
+            }
+            notifyDataChanged("user_profile_updated")
+            if (broadcast) {
+                val user = getUserById(userId)
+                if (user != null) {
+                    val payload = JSONObject().apply {
+                        put("id", userId)
+                        put("username", user.username)
+                        put("fullName", newFullName)
+                        put("phone", newPhone)
+                    }
+                    RealtimeSyncManager.broadcast("USER_PROFILE_UPDATED", payload, "Cập nhật hồ sơ: $newFullName (@${user.username})")
+                }
+            }
+        }
+        return updated
+    }
+
     sealed class FaceAuthResult {
         data class Success(val user: User, val similarity: Float) : FaceAuthResult()
         data class MismatchTargetUser(val matchedUser: User?, val targetUsername: String) : FaceAuthResult()
@@ -1599,14 +1651,35 @@ class RestaurantRepository(context: Context) {
                     val username = payload.optString("username")
                     val faceIdData = payload.optString("faceIdData")
                     val cv = ContentValues().apply {
-                        put("face_id_data", faceIdData)
+                        if (faceIdData.isBlank()) {
+                            putNull("face_id_data")
+                        } else {
+                            put("face_id_data", faceIdData)
+                        }
                     }
                     db.update(RestaurantDbHelper.TABLE_USERS, cv, "username=?", arrayOf(username))
                     val saved = getSavedLoggedInUser()
                     if (saved?.username == username) {
-                        saveLoggedInUser(saved.copy(faceIdData = faceIdData))
+                        saveLoggedInUser(saved.copy(faceIdData = if (faceIdData.isBlank()) null else faceIdData))
                     }
                     notifyDataChanged("remote_user_face_id_updated")
+                }
+
+                "USER_PROFILE_UPDATED" -> {
+                    val db = dbHelper.writableDatabase
+                    val username = payload.optString("username")
+                    val fullName = payload.optString("fullName")
+                    val phone = payload.optString("phone")
+                    val cv = ContentValues().apply {
+                        put("full_name", fullName)
+                        put("phone", phone)
+                    }
+                    db.update(RestaurantDbHelper.TABLE_USERS, cv, "username=?", arrayOf(username))
+                    val saved = getSavedLoggedInUser()
+                    if (saved?.username == username) {
+                        saveLoggedInUser(saved.copy(fullName = fullName, phone = phone))
+                    }
+                    notifyDataChanged("remote_user_profile_updated")
                 }
 
                 "USER_PASSWORD_UPDATED" -> {
