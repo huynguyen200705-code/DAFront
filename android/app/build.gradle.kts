@@ -55,6 +55,7 @@ dependencies {
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("androidx.concurrent:concurrent-futures-ktx:1.1.0")
+    implementation("com.google.zxing:core:3.5.3")
 }
 
 kotlin {

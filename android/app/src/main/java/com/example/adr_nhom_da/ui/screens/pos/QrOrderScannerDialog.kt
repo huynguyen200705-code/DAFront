@@ -120,14 +120,37 @@ fun QrOrderScannerDialog(
             }
         }
 
-        // Match table
-        val matchedTable = tables.firstOrNull { table ->
-            code.contains(table.getQrCodeContent(), ignoreCase = true) ||
-            code.contains("TABLE-${table.id}", ignoreCase = true) ||
-            code.contains("tableId=${table.id}", ignoreCase = true) ||
-            code.contains(table.name, ignoreCase = true) ||
-            code == table.id.toString()
-        } ?: selectedTargetTable ?: tables.firstOrNull()
+        // 1. Try URL parameter or TABLE-ID pattern
+        val tableIdMatch = Regex("""(?:tableId=|TABLE-)(\d+)""", RegexOption.IGNORE_CASE).find(code)
+        var matchedTable: RestaurantTable? = null
+        if (tableIdMatch != null) {
+            val id = tableIdMatch.groupValues[1].toLongOrNull()
+            if (id != null) {
+                matchedTable = tables.firstOrNull { it.id == id }
+            }
+        }
+
+        // 2. Direct string / QR content match
+        if (matchedTable == null) {
+            matchedTable = tables.firstOrNull { table ->
+                code.contains(table.getQrCodeContent(), ignoreCase = true) ||
+                code.contains(table.name, ignoreCase = true) ||
+                code.equals(table.id.toString(), ignoreCase = true)
+            }
+        }
+
+        // 3. Number extraction match (e.g. Table "Bàn 101" -> matches "101")
+        if (matchedTable == null) {
+            val num = Regex("""\d+""").find(code)?.value
+            if (num != null) {
+                matchedTable = tables.firstOrNull { it.name.contains(num) || it.id.toString() == num }
+            }
+        }
+
+        // 4. Fallback to currently selected or first table
+        if (matchedTable == null) {
+            matchedTable = selectedTargetTable ?: tables.firstOrNull()
+        }
 
         if (matchedTable != null) {
             triggerTableScanSuccess(matchedTable)

@@ -150,7 +150,7 @@ fun TableQrStandeeDialog(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // High quality Procedural QR Code
+                        // Real Standard Scannable QR Code
                         Box(
                             modifier = Modifier
                                 .size(170.dp)
@@ -159,8 +159,8 @@ fun TableQrStandeeDialog(
                                 .padding(10.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            SimulatedQrMatrixCanvas(
-                                seed = table.id.toInt() * 101,
+                            com.example.adr_nhom_da.ui.components.RealQrCodeImage(
+                                content = table.getQrCodeContent(),
                                 modifier = Modifier.size(150.dp)
                             )
                         }

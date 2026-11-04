@@ -283,7 +283,7 @@ fun EmployeeBadgeDialog(
                             horizontalArrangement = Arrangement.SpaceAround,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // QR Matrix Canvas simulation
+                            // Real Scannable QR Code
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(
                                     modifier = Modifier
@@ -293,8 +293,8 @@ fun EmployeeBadgeDialog(
                                         .padding(6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    SimulatedQrMatrixCanvas(
-                                        seed = employee.id.toInt(),
+                                    com.example.adr_nhom_da.ui.components.RealQrCodeImage(
+                                        content = employee.getQrCodeContent(),
                                         modifier = Modifier.size(96.dp)
                                     )
                                 }

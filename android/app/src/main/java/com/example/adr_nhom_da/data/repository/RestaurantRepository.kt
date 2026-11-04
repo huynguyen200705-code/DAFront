@@ -203,6 +203,25 @@ class RestaurantRepository(context: Context) {
         }
         val result = db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
         if (result != -1L) {
+            // Automatically grant a linked Employee card with NFC to the newly registered user
+            val empName = if (user.fullName.isNotBlank()) user.fullName else user.username
+            val existingEmp = getAllEmployees().find {
+                it.name.equals(empName, ignoreCase = true) ||
+                it.name.equals(user.username, ignoreCase = true) ||
+                (user.phone.isNotBlank() && it.phone == user.phone)
+            }
+            if (existingEmp == null) {
+                val emp = Employee(
+                    name = empName,
+                    phone = user.phone.ifBlank { "090${(1000000..9999999).random()}" },
+                    position = if (user.role == UserRole.ADMIN) "Quản Lý (@${user.username})" else "Nhân Viên (@${user.username})",
+                    tier = if (user.role == UserRole.ADMIN) EmployeeTier.QUAN_LY else EmployeeTier.CHINH_THUC,
+                    contractType = ContractType.MONTHLY,
+                    monthlySalary = if (user.role == UserRole.ADMIN) 15000000.0 else 8500000.0
+                )
+                addEmployee(emp, broadcast = broadcast)
+            }
+
             notifyDataChanged("register_user")
             if (broadcast) {
                 val payload = JSONObject().apply {
@@ -1631,18 +1650,43 @@ class RestaurantRepository(context: Context) {
 
                 "USER_REGISTERED" -> {
                     val db = dbHelper.writableDatabase
+                    val username = payload.optString("username")
+                    val fullName = payload.optString("fullName")
+                    val phone = payload.optString("phone", "")
+                    val roleStr = payload.optString("role", "USER")
                     val cv = ContentValues().apply {
-                        put("username", payload.optString("username"))
+                        put("username", username)
                         put("password", payload.optString("password"))
-                        put("full_name", payload.optString("fullName"))
-                        put("phone", payload.optString("phone", ""))
-                        put("role", payload.optString("role", "USER"))
+                        put("full_name", fullName)
+                        put("phone", phone)
+                        put("role", roleStr)
                         val faceId = payload.optString("faceIdData")
                         if (faceId.isNotBlank()) {
                             put("face_id_data", faceId)
                         }
                     }
                     db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+
+                    // Ensure employee card and NFC exists on this machine as well
+                    val empName = if (fullName.isNotBlank()) fullName else username
+                    val existingEmp = getAllEmployees().find {
+                        it.name.equals(empName, ignoreCase = true) ||
+                        it.name.equals(username, ignoreCase = true) ||
+                        (phone.isNotBlank() && it.phone == phone)
+                    }
+                    if (existingEmp == null) {
+                        val role = try { UserRole.valueOf(roleStr) } catch (e: Exception) { UserRole.USER }
+                        val emp = Employee(
+                            name = empName,
+                            phone = phone.ifBlank { "090${(1000000..9999999).random()}" },
+                            position = if (role == UserRole.ADMIN) "Quản Lý (@$username)" else "Nhân Viên (@$username)",
+                            tier = if (role == UserRole.ADMIN) EmployeeTier.QUAN_LY else EmployeeTier.CHINH_THUC,
+                            contractType = ContractType.MONTHLY,
+                            monthlySalary = if (role == UserRole.ADMIN) 15000000.0 else 8500000.0
+                        )
+                        addEmployee(emp, broadcast = false)
+                    }
+
                     notifyDataChanged("remote_user_registered")
                 }
 

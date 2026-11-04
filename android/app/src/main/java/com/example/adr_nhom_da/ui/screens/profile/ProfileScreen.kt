@@ -75,11 +75,27 @@ fun ProfileScreen(
         }
     }
 
-    var selfEmployee by remember(activeUser.fullName) {
-        mutableStateOf(
-            repository.getAllEmployees().find { it.name.contains(activeUser.fullName, ignoreCase = true) }
-                ?: repository.getAllEmployees().firstOrNull()
-        )
+    var selfEmployee by remember(activeUser.fullName, activeUser.username) {
+        val found = repository.getAllEmployees().find {
+            it.name.equals(activeUser.fullName, ignoreCase = true) ||
+            it.name.equals(activeUser.username, ignoreCase = true) ||
+            (activeUser.phone.isNotBlank() && it.phone == activeUser.phone)
+        }
+        if (found == null) {
+            val empName = if (activeUser.fullName.isNotBlank()) activeUser.fullName else activeUser.username
+            val newEmp = Employee(
+                name = empName,
+                phone = activeUser.phone.ifBlank { "0901234567" },
+                position = if (activeUser.role == UserRole.ADMIN) "Quản Lý (@${activeUser.username})" else "Nhân Viên (@${activeUser.username})",
+                tier = if (activeUser.role == UserRole.ADMIN) EmployeeTier.QUAN_LY else EmployeeTier.CHINH_THUC,
+                contractType = ContractType.MONTHLY,
+                monthlySalary = if (activeUser.role == UserRole.ADMIN) 15000000.0 else 8500000.0
+            )
+            repository.addEmployee(newEmp)
+            mutableStateOf<Employee?>(repository.getAllEmployees().find { it.name == empName } ?: newEmp)
+        } else {
+            mutableStateOf<Employee?>(found)
+        }
     }
 
     val lastAtt = selfEmployee?.let { repository.getLastAttendanceForEmployee(it.id) }
