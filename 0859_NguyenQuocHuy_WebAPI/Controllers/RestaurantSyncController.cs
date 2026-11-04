@@ -1,4 +1,4 @@
-using _0859_NguyenQuocHuy_WebAPI.Models;
+﻿using _0859_NguyenQuocHuy_WebAPI.Models;
 using _0859_NguyenQuocHuy_WebAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -477,6 +477,134 @@ public class RestaurantSyncController : ControllerBase
         });
     }
 
+
+    // ============================================================
+    // ENDPOINTS NHAN TUNG RECORD DON LE TU APP (AUTO-SYNC)
+    // ============================================================
+
+    [HttpPost("customer")]
+    public async Task<IActionResult> UpsertCustomer([FromBody] CustomerSyncDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.Phone))
+            return BadRequest(new { success = false, message = "Thieu so dien thoai." });
+
+        var ex = await _context.Customers.FirstOrDefaultAsync(c => c.Phone == dto.Phone.Trim());
+        if (ex == null)
+        {
+            ex = new Customer { Name = dto.Name?.Trim() ?? "", Phone = dto.Phone.Trim(), Email = dto.Email?.Trim() ?? "", TotalSpent = dto.TotalSpent, LoyaltyPoints = dto.LoyaltyPoints };
+            _context.Customers.Add(ex);
+        }
+        else
+        {
+            ex.Name = dto.Name?.Trim() ?? ex.Name;
+            ex.Email = dto.Email?.Trim() ?? ex.Email;
+            ex.TotalSpent = Math.Max(ex.TotalSpent, dto.TotalSpent);
+            ex.LoyaltyPoints = Math.Max(ex.LoyaltyPoints, dto.LoyaltyPoints);
+        }
+        await _context.SaveChangesAsync();
+        await _notificationService.RecordActivityAsync(new AppActivity { Action = "KHACH HANG: " + ex.Name, Description = "App dong bo: " + ex.Name + " (" + ex.Phone + ") | " + ex.Tier, Category = "Customer", Source = "App Android", Status = "SUCCESS", Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
+        return Ok(new { success = true, id = ex.Id, message = "Da luu khach hang." });
+    }
+
+    [HttpPost("employee")]
+    public async Task<IActionResult> UpsertEmployee([FromBody] EmployeeSyncDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.Phone))
+            return BadRequest(new { success = false, message = "Thieu so dien thoai nhan vien." });
+
+        var ex = await _context.Employees.FirstOrDefaultAsync(e => e.Phone == dto.Phone.Trim());
+        if (ex == null)
+        {
+            ex = new Employee { Name = dto.Name?.Trim() ?? "", Phone = dto.Phone.Trim(), Position = dto.Position?.Trim() ?? "Nhan vien", Tier = dto.Tier ?? "CHINH_THUC", ContractType = dto.ContractType ?? "MONTHLY", MonthlySalary = dto.MonthlySalary, HourlyRate = dto.HourlyRate, Bonus = dto.Bonus, Penalty = dto.Penalty, WorkedDays = dto.WorkedDays };
+            _context.Employees.Add(ex);
+        }
+        else
+        {
+            ex.Name = dto.Name?.Trim() ?? ex.Name;
+            ex.Position = dto.Position?.Trim() ?? ex.Position;
+            ex.Tier = dto.Tier ?? ex.Tier;
+            ex.MonthlySalary = dto.MonthlySalary > 0 ? dto.MonthlySalary : ex.MonthlySalary;
+            ex.HourlyRate = dto.HourlyRate > 0 ? dto.HourlyRate : ex.HourlyRate;
+            ex.Bonus = dto.Bonus;
+            ex.Penalty = dto.Penalty;
+        }
+        await _context.SaveChangesAsync();
+        await _notificationService.RecordActivityAsync(new AppActivity { Action = "NHAN VIEN: " + ex.Name, Description = "App dong bo: " + ex.Name + " (" + ex.Phone + ") | " + ex.Position, Category = "Employee", Source = "App Android", Status = "SUCCESS", Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
+        return Ok(new { success = true, id = ex.Id, message = "Da luu nhan vien." });
+    }
+
+    [HttpPost("table")]
+    public async Task<IActionResult> UpsertTable([FromBody] TableSyncDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { success = false, message = "Thieu ten ban." });
+
+        var ex = await _context.RestaurantTables.FirstOrDefaultAsync(t => t.Name == dto.Name.Trim());
+        if (ex == null)
+        {
+            ex = new RestaurantTable { Name = dto.Name.Trim(), Floor = dto.Floor?.Trim() ?? "Tang 1", Seats = dto.Seats > 0 ? dto.Seats : 4, Status = dto.Status ?? "AVAILABLE" };
+            _context.RestaurantTables.Add(ex);
+        }
+        else
+        {
+            ex.Floor = dto.Floor?.Trim() ?? ex.Floor;
+            ex.Seats = dto.Seats > 0 ? dto.Seats : ex.Seats;
+            ex.Status = dto.Status ?? ex.Status;
+        }
+        await _context.SaveChangesAsync();
+        return Ok(new { success = true, id = ex.Id, message = "Da luu ban." });
+    }
+
+    [HttpPost("menuitem")]
+    public async Task<IActionResult> UpsertMenuItem([FromBody] MenuItemSyncDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { success = false, message = "Thieu ten mon." });
+
+        var ex = await _context.MenuItems.FirstOrDefaultAsync(m => m.Name == dto.Name.Trim());
+        if (ex == null)
+        {
+            ex = new MenuItem { Name = dto.Name.Trim(), Category = dto.Category?.Trim() ?? "Chua phan loai", Price = dto.Price, Description = dto.Description?.Trim() ?? "", IsAvailable = dto.IsAvailable };
+            _context.MenuItems.Add(ex);
+        }
+        else
+        {
+            ex.Price = dto.Price > 0 ? dto.Price : ex.Price;
+            ex.Category = dto.Category?.Trim() ?? ex.Category;
+            ex.Description = dto.Description?.Trim() ?? ex.Description;
+            ex.IsAvailable = dto.IsAvailable;
+        }
+        await _context.SaveChangesAsync();
+        return Ok(new { success = true, id = ex.Id, message = "Da luu mon an." });
+    }
+
+    [HttpPost("order")]
+    public async Task<IActionResult> SaveOrder([FromBody] OrderSyncDto dto)
+    {
+        if (dto == null)
+            return BadRequest(new { success = false, message = "Du lieu don hang khong hop le." });
+
+        var exists = await _context.Orders.AnyAsync(o => o.TableId == dto.TableId && o.Timestamp == dto.CreatedAt);
+        if (!exists)
+        {
+            var order = new Order
+            {
+                TableId = dto.TableId,
+                TableName = dto.TableName ?? "",
+                Status = dto.Status ?? "COMPLETED",
+                Subtotal = dto.FinalAmount,
+                PaymentMethod = dto.PaymentMethod ?? "Tien mat",
+                EmployeeName = dto.StaffName ?? "",
+                CustomerName = dto.CustomerName ?? "Khach vang lai",
+                DiscountPercent = dto.DiscountPercent,
+                Timestamp = dto.CreatedAt > 0 ? dto.CreatedAt : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            };
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+            await _notificationService.RecordActivityAsync(new AppActivity { Action = "THANH TOAN: " + dto.TableName, Description = "App dong bo don hang '" + dto.TableName + "' | " + dto.FinalAmount.ToString("N0") + "d | " + dto.PaymentMethod, Category = "Order", Source = "App Android", Status = "SUCCESS", Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
+        }
+        return Ok(new { success = true, message = "Da luu don hang." });
+    }
     private static string EscapeSql(string input)
     {
         if (string.IsNullOrEmpty(input)) return string.Empty;
@@ -492,4 +620,63 @@ public class SyncUploadRequest
     public List<Employee>? Employees { get; set; }
     public List<AttendanceRecord>? Attendance { get; set; }
     public List<Order>? Orders { get; set; }
+}
+
+
+// DTOs nhan du lieu tung record tu App Android
+public class CustomerSyncDto
+{
+    public string? Name { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public double TotalSpent { get; set; }
+    public int LoyaltyPoints { get; set; }
+    public string? Tier { get; set; }
+}
+
+public class EmployeeSyncDto
+{
+    public string? Name { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? Position { get; set; }
+    public string? Tier { get; set; }
+    public string? ContractType { get; set; }
+    public double MonthlySalary { get; set; }
+    public double HourlyRate { get; set; }
+    public int WorkedDays { get; set; }
+    public double Bonus { get; set; }
+    public double Penalty { get; set; }
+}
+
+public class TableSyncDto
+{
+    public string? Name { get; set; }
+    public string? Floor { get; set; }
+    public int Seats { get; set; }
+    public string? Status { get; set; }
+}
+
+public class MenuItemSyncDto
+{
+    public string? Name { get; set; }
+    public string? Category { get; set; }
+    public double Price { get; set; }
+    public string? Description { get; set; }
+    public bool IsAvailable { get; set; } = true;
+}
+
+public class OrderSyncDto
+{
+    public long TableId { get; set; }
+    public string? TableName { get; set; }
+    public string? CustomerName { get; set; }
+    public string? Status { get; set; }
+    public double Subtotal { get; set; }
+    public double DiscountPercent { get; set; }
+    public double VatPercent { get; set; }
+    public double FinalAmount { get; set; }
+    public string? PaymentMethod { get; set; }
+    public string? StaffName { get; set; }
+    public long CreatedAt { get; set; }
 }
