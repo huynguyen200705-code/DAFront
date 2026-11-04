@@ -70,19 +70,18 @@ fun FaceIdVerificationDialog(
         label = "border_glow"
     )
 
-    // Handle verification success trigger
+    // Handle verification success trigger with ultra-fast feedback (350ms for visual tick)
     LaunchedEffect(authStatus) {
         if (authStatus == FaceAuthStatus.SUCCESS) {
-            delay(850)
+            delay(350)
             onSuccess()
         }
     }
 
-    // When face is detected continuously, authenticate
+    // Instantaneous Face Detection & Authentication
     LaunchedEffect(faceDetectedCount) {
-        if (faceDetectedCount >= 2 && !isVerifying && authStatus == FaceAuthStatus.SCANNING) {
+        if (faceDetectedCount >= 1 && !isVerifying && authStatus == FaceAuthStatus.SCANNING) {
             isVerifying = true
-            delay(500)
             authStatus = FaceAuthStatus.SUCCESS
         }
     }
@@ -237,8 +236,9 @@ fun FaceIdVerificationDialog(
                             lensFacing = lensFacing,
                             enableFaceDetection = authStatus == FaceAuthStatus.SCANNING,
                             onFaceDetected = { faces ->
-                                if (faces.isNotEmpty()) {
-                                    faceDetectedCount++
+                                if (faces.isNotEmpty() && authStatus == FaceAuthStatus.SCANNING && !isVerifying) {
+                                    isVerifying = true
+                                    authStatus = FaceAuthStatus.SUCCESS
                                 }
                             },
                             onCameraUnavailable = {

@@ -80,7 +80,7 @@ fun FaceIdLoginDialog(
 
     LaunchedEffect(matchedUser) {
         if (matchedUser != null) {
-            delay(900)
+            delay(350)
             onLoginSuccess(matchedUser!!)
         }
     }
@@ -193,12 +193,9 @@ fun FaceIdLoginDialog(
                         enableFaceDetection = matchedUser == null,
                         onFaceDetected = { faces ->
                             if (matchedUser == null && faces.isNotEmpty()) {
-                                scanCount++
-                                if (scanCount >= 2) {
-                                    val sig = FaceBiometricHelper.extractFaceSignature(faces.first())
-                                    if (sig != null) {
-                                        processFaceSignature(sig)
-                                    }
+                                val sig = FaceBiometricHelper.extractFaceSignature(faces.first())
+                                if (sig != null) {
+                                    processFaceSignature(sig)
                                 }
                             }
                         }

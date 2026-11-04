@@ -53,15 +53,15 @@ fun FaceIdEnrollmentDialog(
         label = "laser_pos"
     )
 
-    // Complete enrollment when enough frames collected
+    // Complete enrollment when enough frames collected (instantaneous 2-frame average)
     LaunchedEffect(collectedSignatures.size) {
-        if (collectedSignatures.size >= 3 && !isCompleted) {
+        if (collectedSignatures.size >= 2 && !isCompleted) {
             isCompleted = true
-            statusText = "✓ Đã thu thập đủ đặc trưng khuôn mặt! Đang lưu..."
+            statusText = "✓ Đã thu thập đặc trưng khuôn mặt! Đang lưu..."
             val finalSignature = FaceBiometricHelper.averageSignatures(collectedSignatures)
                 ?: collectedSignatures.first()
             repository.updateUserFaceId(username, finalSignature, broadcast = true)
-            delay(1000)
+            delay(400)
             onEnrolled()
         }
     }
