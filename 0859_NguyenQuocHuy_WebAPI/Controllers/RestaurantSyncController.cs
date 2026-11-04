@@ -1,4 +1,4 @@
-﻿using _0859_NguyenQuocHuy_WebAPI.Models;
+using _0859_NguyenQuocHuy_WebAPI.Models;
 using _0859_NguyenQuocHuy_WebAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -438,6 +438,10 @@ public class RestaurantSyncController : ControllerBase
         var customersCount = await _context.Customers.CountAsync();
         var employeesCount = await _context.Employees.CountAsync();
         var ordersCount = await _context.Orders.CountAsync();
+        var totalRevenue = await _context.Orders.SumAsync(o => (double?)o.FinalTotal) ?? 0.0;
+        var now = DateTimeOffset.UtcNow;
+        var startOfToday = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+        var todayRevenue = await _context.Orders.Where(o => o.Timestamp >= startOfToday).SumAsync(o => (double?)o.FinalTotal) ?? 0.0;
         var attendanceCount = await _context.AttendanceRecords.CountAsync();
         var activitiesCount = await _context.AppActivities.CountAsync();
         var activeOrdersCount = await _context.ActiveTableOrders.CountAsync();
@@ -455,6 +459,8 @@ public class RestaurantSyncController : ControllerBase
                 customers = customersCount,
                 employees = employeesCount,
                 orders = ordersCount,
+                totalRevenue = totalRevenue,
+                todayRevenue = todayRevenue,
                 attendance = attendanceCount,
                 activities = activitiesCount,
                 activeTableOrders = activeOrdersCount
@@ -552,6 +558,7 @@ public class RestaurantSyncController : ControllerBase
             ex.Status = dto.Status ?? ex.Status;
         }
         await _context.SaveChangesAsync();
+        await _notificationService.RecordActivityAsync(new AppActivity { Action = "BÀN ĂN: " + ex.Name, Description = "App đồng bộ bàn: " + ex.Name + " (" + ex.Floor + ") | Trạng thái: " + ex.Status, Category = "Table", Source = "📱 App Android", Status = "SUCCESS", Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
         return Ok(new { success = true, id = ex.Id, message = "Da luu ban." });
     }
 
@@ -575,6 +582,7 @@ public class RestaurantSyncController : ControllerBase
             ex.IsAvailable = dto.IsAvailable;
         }
         await _context.SaveChangesAsync();
+        await _notificationService.RecordActivityAsync(new AppActivity { Action = "THỰC ĐƠN: " + ex.Name, Description = "App đồng bộ món: " + ex.Name + " (" + ex.Category + ") - " + ex.Price.ToString("N0") + "đ", Category = "Menu", Source = "📱 App Android", Status = "SUCCESS", Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
         return Ok(new { success = true, id = ex.Id, message = "Da luu mon an." });
     }
 

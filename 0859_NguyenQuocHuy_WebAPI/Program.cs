@@ -15,7 +15,20 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Đảm bảo máy chủ lắng nghe trên tất cả các mạng (LAN, Wi-Fi, Internet tunnel)
-builder.WebHost.UseUrls("http://0.0.0.0:5276");
+var envPort = Environment.GetEnvironmentVariable("PORT");
+var aspnetUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+if (!string.IsNullOrEmpty(envPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{envPort}");
+}
+else if (!string.IsNullOrEmpty(aspnetUrls))
+{
+    builder.WebHost.UseUrls(aspnetUrls);
+}
+else
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5276");
+}
 
 // 1. Đăng ký CSDL — tự động dùng SQLite nếu UseSqlite=true hoặc SQL Server không khả dụng
 var useSqlite = builder.Configuration.GetValue<bool>("UseSqlite");
@@ -145,6 +158,13 @@ using (var scope = app.Services.CreateScope())
     {
         var dbContext = services.GetRequiredService<ApplicationDbContext>();
         await dbContext.Database.EnsureCreatedAsync();
+        try
+        {
+            await dbContext.Database.ExecuteSqlRawAsync(
+                "CREATE TABLE IF NOT EXISTS app_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, description TEXT, category TEXT, source TEXT, status TEXT, timestamp INTEGER NOT NULL, payload TEXT);"
+            );
+        }
+        catch { }
         await DatabaseSeeder.SeedAsync(dbContext);
         await InitializeSystemUsersAndRolesAsync(
             services.GetRequiredService<RoleManager<IdentityRole>>(),
