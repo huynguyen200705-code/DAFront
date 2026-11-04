@@ -18,7 +18,7 @@ object RestaurantApiClient {
     var cloudUrl: String = "https://da-restaurant-api.onrender.com"
     var emulatorUrl: String = "http://10.0.2.2:5276"
     var radminUrl: String = "http://26.38.230.253:5276"
-    var activeServerLabel: String = "🏠 Local Web API (Wi-Fi)"
+    var activeServerLabel: String = "Tự động kết nối"
     var authToken: String? = null
 
     fun cleanUrl(rawUrl: String): String {
@@ -38,20 +38,43 @@ object RestaurantApiClient {
         baseUrl = cleanUrl(rawUrl)
     }
 
+    fun saveConfig(context: android.content.Context, newCloudUrl: String, newLocalUrl: String) {
+        val cleanedCloud = cleanUrl(newCloudUrl)
+        val cleanedLocal = cleanUrl(newLocalUrl)
+        if (cleanedCloud.isNotBlank()) {
+            cloudUrl = cleanedCloud
+            baseUrl = cleanedCloud
+        }
+        if (cleanedLocal.isNotBlank()) localUrl = cleanedLocal
+
+        context.getSharedPreferences("app_api_config", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString("cloud_url", cleanedCloud)
+            .putString("local_url", cleanedLocal)
+            .apply()
+    }
+
     fun init(context: android.content.Context) {
         try {
+            val prefs = context.getSharedPreferences("app_api_config", android.content.Context.MODE_PRIVATE)
+            val savedCloud = prefs.getString("cloud_url", "") ?: ""
+            val savedLocal = prefs.getString("local_url", "") ?: ""
+
+            if (savedCloud.isNotBlank()) cloudUrl = cleanUrl(savedCloud)
+            if (savedLocal.isNotBlank()) localUrl = cleanUrl(savedLocal)
+
             context.assets.open(".env").bufferedReader().useLines { lines ->
                 for (line in lines) {
                     val trimmed = line.trim()
                     if (trimmed.startsWith("#") || trimmed.isBlank()) continue
 
-                    if (trimmed.startsWith("BASE_URL=")) {
+                    if (trimmed.startsWith("BASE_URL=") && savedCloud.isBlank()) {
                         val v = trimmed.substringAfter("BASE_URL=").trim()
                         if (v.isNotBlank()) updateBaseUrl(v)
-                    } else if (trimmed.startsWith("LOCAL_URL=")) {
+                    } else if (trimmed.startsWith("LOCAL_URL=") && savedLocal.isBlank()) {
                         val v = trimmed.substringAfter("LOCAL_URL=").trim()
                         if (v.isNotBlank()) localUrl = cleanUrl(v)
-                    } else if (trimmed.startsWith("CLOUD_URL=")) {
+                    } else if (trimmed.startsWith("CLOUD_URL=") && savedCloud.isBlank()) {
                         val v = trimmed.substringAfter("CLOUD_URL=").trim()
                         if (v.isNotBlank()) cloudUrl = cleanUrl(v)
                     } else if (trimmed.startsWith("EMULATOR_URL=")) {
@@ -62,6 +85,10 @@ object RestaurantApiClient {
                         if (v.isNotBlank()) radminUrl = cleanUrl(v)
                     }
                 }
+            }
+
+            if (savedCloud.isNotBlank()) {
+                baseUrl = cloudUrl
             }
         } catch (e: Exception) {
             // Keep default baseUrl if .env is missing

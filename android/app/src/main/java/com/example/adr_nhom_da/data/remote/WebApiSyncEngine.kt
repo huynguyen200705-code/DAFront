@@ -33,16 +33,16 @@ object WebApiSyncEngine {
     private var isEngineRunning = false
     private var syncWorkerThread: Thread? = null
 
-    // Danh sách URL song song: Local Wi-Fi PC & Cloud Render (Tự động nhận diện)
+    // Danh sách URL song song: Cloud Render đặt trước, sau đó là Local Wi-Fi PC
     val candidateBaseUrls: List<String>
         get() = listOfNotNull(
+            RestaurantApiClient.cloudUrl,
             RestaurantApiClient.baseUrl,
             RestaurantApiClient.localUrl,
-            RestaurantApiClient.cloudUrl,
-            RestaurantApiClient.emulatorUrl,
-            RestaurantApiClient.radminUrl,
             "http://192.168.0.172:5276",
+            RestaurantApiClient.emulatorUrl,
             "http://10.0.2.2:5276",
+            RestaurantApiClient.radminUrl,
             "http://26.38.230.253:5276",
             "http://127.0.0.1:5276"
         ).distinct().filter { it.isNotBlank() }
@@ -247,23 +247,33 @@ object WebApiSyncEngine {
                     return@thread
                 }
 
-                // Gửi Upload lên Web API
-                val uploadUrl = URL("$connectedUrl/api/sync/upload")
-                val uploadConn = (uploadUrl.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = 8000
-                    readTimeout = 15000
-                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                    setRequestProperty("Accept", "application/json")
-                    doOutput = true
+                // Gửi Upload đồng thời lên TẤT CẢ máy chủ (cả Cloud Render và Local PC)
+                var uploadSuccessCount = 0
+                for (targetUrl in urlsToTry) {
+                    try {
+                        val uploadUrl = URL("$targetUrl/api/sync/upload")
+                        val uploadConn = (uploadUrl.openConnection() as HttpURLConnection).apply {
+                            requestMethod = "POST"
+                            connectTimeout = 5000
+                            readTimeout = 12000
+                            setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                            setRequestProperty("Accept", "application/json")
+                            doOutput = true
+                        }
+                        OutputStreamWriter(uploadConn.outputStream, "UTF-8").use { writer ->
+                            writer.write(payloadString)
+                            writer.flush()
+                        }
+                        if (uploadConn.responseCode in 200..299) {
+                            uploadSuccessCount++
+                            Log.i(TAG, "Đã upload toàn bộ CSDL lên: $targetUrl")
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Không thể upload tới $targetUrl: ${e.message}")
+                    }
                 }
 
-                OutputStreamWriter(uploadConn.outputStream, "UTF-8").use { writer ->
-                    writer.write(payloadString)
-                    writer.flush()
-                }
-
-                val code = uploadConn.responseCode
+                val code = if (uploadSuccessCount > 0) 200 else 500
                 if (code in 200..299) {
                     Log.i(TAG, "✓ Upload dữ liệu lên Web API thành công!")
 
@@ -286,8 +296,7 @@ object WebApiSyncEngine {
 
                     onResult?.invoke(true, "Đồng bộ thành công với Web API ($connectedUrl)")
                 } else {
-                    val errText = BufferedReader(InputStreamReader(uploadConn.errorStream)).use { it.readText() }
-                    Log.w(TAG, "Lỗi HTTP $code từ Web API: $errText")
+                    Log.w(TAG, "Lỗi HTTP $code từ Web API")
                     onResult?.invoke(false, "Web API phản hồi mã lỗi: $code")
                 }
             } catch (e: Exception) {
@@ -376,6 +385,7 @@ object WebApiSyncEngine {
                 val urls = (listOf(RestaurantApiClient.baseUrl) + candidateBaseUrls).distinct()
                 val jsonStr = body.toString()
 
+                // Đồng bộ thay đổi tức thời tới TẤT CẢ máy chủ đang bật (cả Cloud và Local)
                 for (baseUrl in urls) {
                     try {
                         val url = URL("$baseUrl$endpoint")
@@ -387,9 +397,9 @@ object WebApiSyncEngine {
                             doOutput = true
                         }
                         OutputStreamWriter(conn.outputStream, "UTF-8").use { it.write(jsonStr) }
-                        if (conn.responseCode in 200..299) {
-                            RestaurantApiClient.baseUrl = baseUrl
-                            return@thread
+                        val code = conn.responseCode
+                        if (code in 200..299) {
+                            Log.d(TAG, "Đồng bộ record thành công tới: $baseUrl$endpoint")
                         }
                     } catch (ignored: Exception) {}
                 }

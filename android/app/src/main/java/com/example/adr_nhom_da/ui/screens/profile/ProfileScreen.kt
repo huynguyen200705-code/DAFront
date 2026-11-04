@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.adr_nhom_da.data.model.*
 import com.example.adr_nhom_da.data.remote.RealtimeSyncManager
+import com.example.adr_nhom_da.data.remote.RestaurantApiClient
 import com.example.adr_nhom_da.data.remote.WebApiSyncEngine
 import com.example.adr_nhom_da.data.repository.RestaurantRepository
 import com.example.adr_nhom_da.ui.components.FaceIdEnrollmentDialog
@@ -66,6 +67,7 @@ fun ProfileScreen(
     var showAccountManagementDialog by remember { mutableStateOf(false) }
     var showDeleteFaceIdConfirmDialog by remember { mutableStateOf(false) }
     var showLogoutConfirmDialog by remember { mutableStateOf(false) }
+    var showServerConfigDialog by remember { mutableStateOf(false) }
     var syncNoticeMessage by remember { mutableStateOf<String?>(null) }
 
     // Fetch refreshed user from repository
@@ -521,6 +523,17 @@ fun ProfileScreen(
                         }
                     )
 
+                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    ProfileMenuRow(
+                        icon = Icons.Default.Cloud,
+                        iconColor = Color(0xFF1976D2),
+                        title = "Cấu Hình Server Web API (Local & Cloud Deploy)",
+                        subtitle = "Nhập link Render / Cloud để App đồng bộ trực tiếp lên Web API",
+                        trailingBadge = if (RestaurantApiClient.baseUrl.startsWith("https://")) "CLOUD" else "LOCAL",
+                        badgeColor = if (RestaurantApiClient.baseUrl.startsWith("https://")) Color(0xFF1976D2) else Color(0xFF2E7D32),
+                        onClick = { showServerConfigDialog = true }
+                    )
+
                     // System Settings (Admin only)
                     if (activeUser.role == UserRole.ADMIN) {
                         HorizontalDivider(color = Color(0xFFF0F0F0))
@@ -845,6 +858,94 @@ fun ProfileScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showSystemSettingsDialog = false }) { Text("Hủy") }
+            }
+        )
+    }
+
+    // Server Config Dialog (Local & Cloud Deploy)
+    if (showServerConfigDialog) {
+        var inputCloudUrl by remember { mutableStateOf<String>(RestaurantApiClient.cloudUrl) }
+        var inputLocalUrl by remember { mutableStateOf<String>(RestaurantApiClient.localUrl) }
+        var testResultMsg by remember { mutableStateOf<String?>(null) }
+        var isTesting by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showServerConfigDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Cloud, contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(26.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Cấu Hình Server Web API", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    Text("Máy chủ hiện tại:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
+                    Text(
+                        RestaurantApiClient.activeServerLabel,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1976D2)
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text("🌐 URL Cloud Deploy (Render.com / Railway):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = inputCloudUrl,
+                        onValueChange = { newVal: String ->
+                            inputCloudUrl = newVal
+                            testResultMsg = null
+                        },
+                        placeholder = { Text("https://da-restaurant-api.onrender.com") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("Dán URL Web Service Render của bạn vào đây.", fontSize = 11.sp, color = Color.Gray)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text("🏠 URL Local Web API (Wi-Fi máy tính):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = inputLocalUrl,
+                        onValueChange = { newVal: String ->
+                            inputLocalUrl = newVal
+                            testResultMsg = null
+                        },
+                        placeholder = { Text("http://192.168.0.172:5276") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    testResultMsg?.let { msg ->
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(msg, fontSize = 12.sp, color = if (msg.startsWith("✓")) Color(0xFF2E7D32) else Color.Red)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isTesting = true
+                        RestaurantApiClient.saveConfig(context, inputCloudUrl, inputLocalUrl)
+                        WebApiSyncEngine.syncAll(context, repository) { success, msg ->
+                            isTesting = false
+                            testResultMsg = if (success) "✓ Đã kết nối và đồng bộ toàn bộ dữ liệu lên Web API!" else "⚠ $msg"
+                            if (success) {
+                                Toast.makeText(context, "Đã lưu và đồng bộ thành công!", Toast.LENGTH_SHORT).show()
+                                showServerConfigDialog = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                ) {
+                    Text(if (isTesting) "Đang kết nối..." else "Lưu & Đồng Bộ Ngay")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showServerConfigDialog = false }) {
+                    Text("Đóng")
+                }
             }
         )
     }
