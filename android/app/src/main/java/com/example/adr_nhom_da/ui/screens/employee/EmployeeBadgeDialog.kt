@@ -56,7 +56,7 @@ fun EmployeeBadgeDialog(
     fun processAttendance(method: AttendanceMethod) {
         val type = if (isCheckingOut) AttendanceType.CHECK_OUT else AttendanceType.CHECK_IN
         val note = when (method) {
-            AttendanceMethod.NFC -> "Chấm công qua Thẻ nhân viên NFC"
+            AttendanceMethod.NFC, AttendanceMethod.NFC_CARD -> "Chấm công qua Thẻ nhân viên NFC"
             AttendanceMethod.QR_CODE -> "Quét mã QR Thẻ nhân viên"
             AttendanceMethod.FACE_ID -> "Nhận diện Face ID sinh trắc học"
         }

@@ -3,7 +3,18 @@ package com.example.adr_nhom_da.data.model
 enum class TableStatus(val displayName: String) {
     TRONG("Trống"),
     DANG_PHUC_VU("Đang phục vụ"),
-    DA_DAT("Đã đặt")
+    DA_DAT("Đã đặt");
+
+    companion object {
+        fun fromString(value: String?): TableStatus {
+            if (value.isNullOrBlank()) return TRONG
+            return when (value.uppercase().trim()) {
+                "DANG_PHUC_VU", "DANGPHUCVU", "OCCUPIED", "SERVING", "BUSY" -> DANG_PHUC_VU
+                "DA_DAT", "DADAT", "RESERVED", "BOOKED" -> DA_DAT
+                else -> TRONG
+            }
+        }
+    }
 }
 
 data class RestaurantTable(

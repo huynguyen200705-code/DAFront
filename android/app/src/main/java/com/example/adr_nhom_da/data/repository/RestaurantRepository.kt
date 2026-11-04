@@ -83,7 +83,7 @@ class RestaurantRepository(context: Context) {
                     password = "",
                     fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
                     phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                    role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                    role = UserRole.fromString(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
                     faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
                 )
             }
@@ -105,90 +105,107 @@ class RestaurantRepository(context: Context) {
 
     // --- AUTHENTICATION & FACE ID ---
     fun login(usernameInput: String, passwordInput: String): User? {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT * FROM ${RestaurantDbHelper.TABLE_USERS} WHERE username=? AND password=?",
-            arrayOf(usernameInput, passwordInput)
-        )
-        var user: User? = null
-        if (cursor.moveToFirst()) {
-            val faceIdCol = cursor.getColumnIndex("face_id_data")
-            user = User(
-                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
-                password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
-                fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
-                phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
-                faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${RestaurantDbHelper.TABLE_USERS} WHERE username=? AND password=?",
+                arrayOf(usernameInput, passwordInput)
             )
-            saveLoggedInUser(user)
+            var user: User? = null
+            if (cursor.moveToFirst()) {
+                val faceIdCol = cursor.getColumnIndex("face_id_data")
+                user = User(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                    username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
+                    password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
+                    fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
+                    phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
+                    role = UserRole.fromString(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                    faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
+                )
+                saveLoggedInUser(user)
+            }
+            cursor.close()
+            user
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error during login", e)
+            null
         }
-        cursor.close()
-        return user
     }
 
     fun getUserById(id: Long): User? {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS} WHERE id=?", arrayOf(id.toString()))
-        var user: User? = null
-        if (cursor.moveToFirst()) {
-            val faceIdCol = cursor.getColumnIndex("face_id_data")
-            user = User(
-                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
-                password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
-                fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
-                phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
-                faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
-            )
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS} WHERE id=?", arrayOf(id.toString()))
+            var user: User? = null
+            if (cursor.moveToFirst()) {
+                val faceIdCol = cursor.getColumnIndex("face_id_data")
+                user = User(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                    username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
+                    password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
+                    fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
+                    phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
+                    role = UserRole.fromString(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                    faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
+                )
+            }
+            cursor.close()
+            user
+        } catch (e: Exception) {
+            null
         }
-        cursor.close()
-        return user
     }
 
     fun getUserByUsername(username: String): User? {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS} WHERE username=?", arrayOf(username))
-        var user: User? = null
-        if (cursor.moveToFirst()) {
-            val faceIdCol = cursor.getColumnIndex("face_id_data")
-            user = User(
-                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
-                password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
-                fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
-                phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
-                faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
-            )
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS} WHERE username=?", arrayOf(username))
+            var user: User? = null
+            if (cursor.moveToFirst()) {
+                val faceIdCol = cursor.getColumnIndex("face_id_data")
+                user = User(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                    username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
+                    password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
+                    fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
+                    phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
+                    role = UserRole.fromString(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                    faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
+                )
+            }
+            cursor.close()
+            user
+        } catch (e: Exception) {
+            null
         }
-        cursor.close()
-        return user
     }
 
     fun getAllUsers(): List<User> {
         val list = mutableListOf<User>()
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS}", null)
-        if (cursor.moveToFirst()) {
-            val faceIdCol = cursor.getColumnIndex("face_id_data")
-            do {
-                list.add(
-                    User(
-                        id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                        username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
-                        password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
-                        fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
-                        phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
-                        role = UserRole.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
-                        faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_USERS}", null)
+            if (cursor.moveToFirst()) {
+                val faceIdCol = cursor.getColumnIndex("face_id_data")
+                do {
+                    list.add(
+                        User(
+                            id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                            username = cursor.getString(cursor.getColumnIndexOrThrow("username")),
+                            password = cursor.getString(cursor.getColumnIndexOrThrow("password")),
+                            fullName = cursor.getString(cursor.getColumnIndexOrThrow("full_name")),
+                            phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")) ?: "",
+                            role = UserRole.fromString(cursor.getString(cursor.getColumnIndexOrThrow("role"))),
+                            faceIdData = if (faceIdCol != -1) cursor.getString(faceIdCol) else null
+                        )
                     )
-                )
-            } while (cursor.moveToNext())
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error getting all users", e)
         }
-        cursor.close()
         return list
     }
 
@@ -743,29 +760,33 @@ class RestaurantRepository(context: Context) {
     // --- EMPLOYEES ---
     fun getAllEmployees(): List<Employee> {
         val list = mutableListOf<Employee>()
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_EMPLOYEES}", null)
-        if (cursor.moveToFirst()) {
-            do {
-                list.add(
-                    Employee(
-                        id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                        name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
-                        phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")),
-                        position = cursor.getString(cursor.getColumnIndexOrThrow("position")),
-                        tier = EmployeeTier.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("tier"))),
-                        contractType = ContractType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("contract_type"))),
-                        hourlyRate = cursor.getDouble(cursor.getColumnIndexOrThrow("hourly_rate")),
-                        monthlySalary = cursor.getDouble(cursor.getColumnIndexOrThrow("monthly_salary")),
-                        workedHours = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_hours")),
-                        workedDays = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_days")),
-                        bonus = cursor.getDouble(cursor.getColumnIndexOrThrow("bonus")),
-                        penalty = cursor.getDouble(cursor.getColumnIndexOrThrow("penalty"))
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_EMPLOYEES}", null)
+            if (cursor.moveToFirst()) {
+                do {
+                    list.add(
+                        Employee(
+                            id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                            name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                            phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")),
+                            position = cursor.getString(cursor.getColumnIndexOrThrow("position")),
+                            tier = EmployeeTier.fromString(cursor.getString(cursor.getColumnIndexOrThrow("tier"))),
+                            contractType = ContractType.fromString(cursor.getString(cursor.getColumnIndexOrThrow("contract_type"))),
+                            hourlyRate = cursor.getDouble(cursor.getColumnIndexOrThrow("hourly_rate")),
+                            monthlySalary = cursor.getDouble(cursor.getColumnIndexOrThrow("monthly_salary")),
+                            workedHours = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_hours")),
+                            workedDays = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_days")),
+                            bonus = cursor.getDouble(cursor.getColumnIndexOrThrow("bonus")),
+                            penalty = cursor.getDouble(cursor.getColumnIndexOrThrow("penalty"))
+                        )
                     )
-                )
-            } while (cursor.moveToNext())
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error getting all employees", e)
         }
-        cursor.close()
         return list
     }
 
@@ -989,44 +1010,52 @@ class RestaurantRepository(context: Context) {
     // --- TABLES ---
     fun getAllTables(): List<RestaurantTable> {
         val list = mutableListOf<RestaurantTable>()
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_TABLES}", null)
-        if (cursor.moveToFirst()) {
-            do {
-                val orderIdVal = cursor.getLong(cursor.getColumnIndexOrThrow("current_order_id"))
-                list.add(
-                    RestaurantTable(
-                        id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                        name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
-                        floor = cursor.getString(cursor.getColumnIndexOrThrow("floor")),
-                        seats = cursor.getInt(cursor.getColumnIndexOrThrow("seats")),
-                        status = TableStatus.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("status"))),
-                        currentOrderId = if (cursor.isNull(cursor.getColumnIndexOrThrow("current_order_id"))) null else orderIdVal
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_TABLES}", null)
+            if (cursor.moveToFirst()) {
+                do {
+                    val orderIdVal = cursor.getLong(cursor.getColumnIndexOrThrow("current_order_id"))
+                    list.add(
+                        RestaurantTable(
+                            id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                            name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                            floor = cursor.getString(cursor.getColumnIndexOrThrow("floor")),
+                            seats = cursor.getInt(cursor.getColumnIndexOrThrow("seats")),
+                            status = TableStatus.fromString(cursor.getString(cursor.getColumnIndexOrThrow("status"))),
+                            currentOrderId = if (cursor.isNull(cursor.getColumnIndexOrThrow("current_order_id"))) null else orderIdVal
+                        )
                     )
-                )
-            } while (cursor.moveToNext())
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error getting all tables", e)
         }
-        cursor.close()
         return list
     }
 
     fun getTableById(id: Long): RestaurantTable? {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_TABLES} WHERE id=?", arrayOf(id.toString()))
-        var table: RestaurantTable? = null
-        if (cursor.moveToFirst()) {
-            val orderIdVal = cursor.getLong(cursor.getColumnIndexOrThrow("current_order_id"))
-            table = RestaurantTable(
-                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
-                floor = cursor.getString(cursor.getColumnIndexOrThrow("floor")),
-                seats = cursor.getInt(cursor.getColumnIndexOrThrow("seats")),
-                status = TableStatus.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("status"))),
-                currentOrderId = if (cursor.isNull(cursor.getColumnIndexOrThrow("current_order_id"))) null else orderIdVal
-            )
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_TABLES} WHERE id=?", arrayOf(id.toString()))
+            var table: RestaurantTable? = null
+            if (cursor.moveToFirst()) {
+                val orderIdVal = cursor.getLong(cursor.getColumnIndexOrThrow("current_order_id"))
+                table = RestaurantTable(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                    name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                    floor = cursor.getString(cursor.getColumnIndexOrThrow("floor")),
+                    seats = cursor.getInt(cursor.getColumnIndexOrThrow("seats")),
+                    status = TableStatus.fromString(cursor.getString(cursor.getColumnIndexOrThrow("status"))),
+                    currentOrderId = if (cursor.isNull(cursor.getColumnIndexOrThrow("current_order_id"))) null else orderIdVal
+                )
+            }
+            cursor.close()
+            table
+        } catch (e: Exception) {
+            null
         }
-        cursor.close()
-        return table
     }
 
     fun addTable(table: RestaurantTable, broadcast: Boolean = true): Boolean {
@@ -1321,159 +1350,183 @@ class RestaurantRepository(context: Context) {
 
     fun getAllCompletedOrders(): List<Order> {
         val list = mutableListOf<Order>()
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_ORDERS} ORDER BY id DESC", null)
-        if (cursor.moveToFirst()) {
-            do {
-                val orderId = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
-                val items = getOrderItems(orderId)
-                list.add(
-                    Order(
-                        id = orderId,
-                        tableId = cursor.getLong(cursor.getColumnIndexOrThrow("table_id")),
-                        tableName = cursor.getString(cursor.getColumnIndexOrThrow("table_name")),
-                        customerId = if (cursor.isNull(cursor.getColumnIndexOrThrow("customer_id"))) null else cursor.getLong(cursor.getColumnIndexOrThrow("customer_id")),
-                        customerName = cursor.getString(cursor.getColumnIndexOrThrow("customer_name")) ?: "Khách vãng lai",
-                        customerTierName = cursor.getString(cursor.getColumnIndexOrThrow("customer_tier_name")) ?: "Bậc Đồng",
-                        employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
-                        employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")) ?: "Nhân viên",
-                        items = items,
-                        subtotal = cursor.getDouble(cursor.getColumnIndexOrThrow("subtotal")),
-                        discountPercent = cursor.getDouble(cursor.getColumnIndexOrThrow("discount_percent")),
-                        paymentMethod = cursor.getString(cursor.getColumnIndexOrThrow("payment_method")) ?: "Tiền mặt",
-                        status = OrderStatus.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("status"))),
-                        timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp"))
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM ${RestaurantDbHelper.TABLE_ORDERS} ORDER BY id DESC", null)
+            if (cursor.moveToFirst()) {
+                do {
+                    val orderId = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
+                    val items = getOrderItems(orderId)
+                    list.add(
+                        Order(
+                            id = orderId,
+                            tableId = cursor.getLong(cursor.getColumnIndexOrThrow("table_id")),
+                            tableName = cursor.getString(cursor.getColumnIndexOrThrow("table_name")),
+                            customerId = if (cursor.isNull(cursor.getColumnIndexOrThrow("customer_id"))) null else cursor.getLong(cursor.getColumnIndexOrThrow("customer_id")),
+                            customerName = cursor.getString(cursor.getColumnIndexOrThrow("customer_name")) ?: "Khách vãng lai",
+                            customerTierName = cursor.getString(cursor.getColumnIndexOrThrow("customer_tier_name")) ?: "Bậc Đồng",
+                            employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
+                            employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")) ?: "Nhân viên",
+                            items = items,
+                            subtotal = cursor.getDouble(cursor.getColumnIndexOrThrow("subtotal")),
+                            discountPercent = cursor.getDouble(cursor.getColumnIndexOrThrow("discount_percent")),
+                            paymentMethod = cursor.getString(cursor.getColumnIndexOrThrow("payment_method")) ?: "Tiền mặt",
+                            status = OrderStatus.fromString(cursor.getString(cursor.getColumnIndexOrThrow("status"))),
+                            timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp"))
+                        )
                     )
-                )
-            } while (cursor.moveToNext())
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error getting all completed orders", e)
         }
-        cursor.close()
         return list
     }
 
     fun getOrderItems(orderId: Long): List<OrderItem> {
         val list = mutableListOf<OrderItem>()
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT * FROM ${RestaurantDbHelper.TABLE_ORDER_ITEMS} WHERE order_id=?",
-            arrayOf(orderId.toString())
-        )
-        if (cursor.moveToFirst()) {
-            do {
-                list.add(
-                    OrderItem(
-                        menuItemId = cursor.getLong(cursor.getColumnIndexOrThrow("menu_item_id")),
-                        menuItemName = cursor.getString(cursor.getColumnIndexOrThrow("menu_item_name")),
-                        price = cursor.getDouble(cursor.getColumnIndexOrThrow("price")),
-                        quantity = cursor.getInt(cursor.getColumnIndexOrThrow("quantity")),
-                        note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${RestaurantDbHelper.TABLE_ORDER_ITEMS} WHERE order_id=?",
+                arrayOf(orderId.toString())
+            )
+            if (cursor.moveToFirst()) {
+                do {
+                    list.add(
+                        OrderItem(
+                            menuItemId = cursor.getLong(cursor.getColumnIndexOrThrow("menu_item_id")),
+                            menuItemName = cursor.getString(cursor.getColumnIndexOrThrow("menu_item_name")),
+                            price = cursor.getDouble(cursor.getColumnIndexOrThrow("price")),
+                            quantity = cursor.getInt(cursor.getColumnIndexOrThrow("quantity")),
+                            note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+                        )
                     )
-                )
-            } while (cursor.moveToNext())
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error getting order items", e)
         }
-        cursor.close()
         return list
     }
 
     fun getEmployeeById(id: Long): Employee? {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT * FROM ${RestaurantDbHelper.TABLE_EMPLOYEES} WHERE id=?",
-            arrayOf(id.toString())
-        )
-        var emp: Employee? = null
-        if (cursor.moveToFirst()) {
-            emp = Employee(
-                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
-                phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")),
-                position = cursor.getString(cursor.getColumnIndexOrThrow("position")),
-                tier = EmployeeTier.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("tier"))),
-                contractType = ContractType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("contract_type"))),
-                hourlyRate = cursor.getDouble(cursor.getColumnIndexOrThrow("hourly_rate")),
-                monthlySalary = cursor.getDouble(cursor.getColumnIndexOrThrow("monthly_salary")),
-                workedHours = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_hours")),
-                workedDays = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_days")),
-                bonus = cursor.getDouble(cursor.getColumnIndexOrThrow("bonus")),
-                penalty = cursor.getDouble(cursor.getColumnIndexOrThrow("penalty"))
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${RestaurantDbHelper.TABLE_EMPLOYEES} WHERE id=?",
+                arrayOf(id.toString())
             )
+            var emp: Employee? = null
+            if (cursor.moveToFirst()) {
+                emp = Employee(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                    name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                    phone = cursor.getString(cursor.getColumnIndexOrThrow("phone")),
+                    position = cursor.getString(cursor.getColumnIndexOrThrow("position")),
+                    tier = EmployeeTier.fromString(cursor.getString(cursor.getColumnIndexOrThrow("tier"))),
+                    contractType = ContractType.fromString(cursor.getString(cursor.getColumnIndexOrThrow("contract_type"))),
+                    hourlyRate = cursor.getDouble(cursor.getColumnIndexOrThrow("hourly_rate")),
+                    monthlySalary = cursor.getDouble(cursor.getColumnIndexOrThrow("monthly_salary")),
+                    workedHours = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_hours")),
+                    workedDays = cursor.getDouble(cursor.getColumnIndexOrThrow("worked_days")),
+                    bonus = cursor.getDouble(cursor.getColumnIndexOrThrow("bonus")),
+                    penalty = cursor.getDouble(cursor.getColumnIndexOrThrow("penalty"))
+                )
+            }
+            cursor.close()
+            emp
+        } catch (e: Exception) {
+            null
         }
-        cursor.close()
-        return emp
     }
 
     // --- ATTENDANCE (CHẤM CÔNG NFC & QR & FACE ID) ---
     fun getAllAttendanceRecords(): List<AttendanceRecord> {
         val list = mutableListOf<AttendanceRecord>()
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} ORDER BY id DESC",
-            null
-        )
-        if (cursor.moveToFirst()) {
-            do {
-                list.add(
-                    AttendanceRecord(
-                        id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                        employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
-                        employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
-                        type = AttendanceType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
-                        method = AttendanceMethod.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
-                        timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
-                        durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
-                        note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+        try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} ORDER BY id DESC",
+                null
+            )
+            if (cursor.moveToFirst()) {
+                do {
+                    list.add(
+                        AttendanceRecord(
+                            id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                            employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
+                            employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
+                            type = AttendanceType.fromString(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
+                            method = AttendanceMethod.fromString(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
+                            timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
+                            durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
+                            note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+                        )
                     )
-                )
-            } while (cursor.moveToNext())
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error getting all attendance records", e)
         }
-        cursor.close()
         return list
     }
 
     fun getLastAttendanceForEmployee(employeeId: Long): AttendanceRecord? {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_id=? ORDER BY id DESC LIMIT 1",
-            arrayOf(employeeId.toString())
-        )
-        var record: AttendanceRecord? = null
-        if (cursor.moveToFirst()) {
-            record = AttendanceRecord(
-                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
-                employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
-                type = AttendanceType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
-                method = AttendanceMethod.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
-                timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
-                durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
-                note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_id=? ORDER BY id DESC LIMIT 1",
+                arrayOf(employeeId.toString())
             )
+            var record: AttendanceRecord? = null
+            if (cursor.moveToFirst()) {
+                record = AttendanceRecord(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                    employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
+                    employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
+                    type = AttendanceType.fromString(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
+                    method = AttendanceMethod.fromString(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
+                    timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
+                    durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
+                    note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+                )
+            }
+            cursor.close()
+            record
+        } catch (e: Exception) {
+            null
         }
-        cursor.close()
-        return record
     }
 
     fun getLastCheckInForEmployee(employeeId: Long): AttendanceRecord? {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_id=? AND type='CHECK_IN' ORDER BY id DESC LIMIT 1",
-            arrayOf(employeeId.toString())
-        )
-        var record: AttendanceRecord? = null
-        if (cursor.moveToFirst()) {
-            record = AttendanceRecord(
-                id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-                employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
-                employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
-                type = AttendanceType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
-                method = AttendanceMethod.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
-                timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
-                durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
-                note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+        return try {
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery(
+                "SELECT * FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_id=? AND type='CHECK_IN' ORDER BY id DESC LIMIT 1",
+                arrayOf(employeeId.toString())
             )
+            var record: AttendanceRecord? = null
+            if (cursor.moveToFirst()) {
+                record = AttendanceRecord(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                    employeeId = cursor.getLong(cursor.getColumnIndexOrThrow("employee_id")),
+                    employeeName = cursor.getString(cursor.getColumnIndexOrThrow("employee_name")),
+                    type = AttendanceType.fromString(cursor.getString(cursor.getColumnIndexOrThrow("type"))),
+                    method = AttendanceMethod.fromString(cursor.getString(cursor.getColumnIndexOrThrow("method"))),
+                    timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp")),
+                    durationHours = cursor.getDouble(cursor.getColumnIndexOrThrow("duration_hours")),
+                    note = cursor.getString(cursor.getColumnIndexOrThrow("note")) ?: ""
+                )
+            }
+            cursor.close()
+            record
+        } catch (e: Exception) {
+            null
         }
-        cursor.close()
-        return record
     }
 
     fun recordAttendance(
@@ -1564,7 +1617,7 @@ class RestaurantRepository(context: Context) {
                     val tableId = payload.optLong("tableId")
                     val tableName = payload.optString("tableName")
                     val statusStr = payload.optString("status")
-                    val status = TableStatus.valueOf(statusStr)
+                    val status = TableStatus.fromString(statusStr)
 
                     val db = dbHelper.writableDatabase
                     val cv = ContentValues().apply { put("status", status.name) }
@@ -2064,238 +2117,242 @@ class RestaurantRepository(context: Context) {
      */
     fun applyFullSyncSnapshot(payload: JSONObject, notify: Boolean = true) {
         val db = dbHelper.writableDatabase
-        db.beginTransaction()
         try {
-            // 1. Synchronize Users (Admins, Managers, Staff)
-            val usersArr = payload.optJSONArray("users") ?: payload.optJSONArray("data")
-            if (usersArr != null) {
-                for (i in 0 until usersArr.length()) {
-                    val obj = usersArr.getJSONObject(i)
-                    val username = obj.optString("username", "")
-                    if (username.isBlank()) continue
+            db.beginTransaction()
+            try {
+                // 1. Synchronize Users (Admins, Managers, Staff)
+                val usersArr = payload.optJSONArray("users") ?: payload.optJSONArray("data")
+                if (usersArr != null) {
+                    for (i in 0 until usersArr.length()) {
+                        val obj = usersArr.getJSONObject(i)
+                        val username = obj.optString("username", "")
+                        if (username.isBlank()) continue
 
-                    val fid = obj.optString("faceIdData", "")
-                    val existing = getUserByUsername(username)
-                    val existingFid = existing?.faceIdData
-                    val password = obj.optString("password", "")
+                        val fid = obj.optString("faceIdData", "")
+                        val existing = getUserByUsername(username)
+                        val existingFid = existing?.faceIdData
+                        val password = obj.optString("password", "")
 
-                    val cv = ContentValues().apply {
-                        put("username", username)
-                        put("password", if (password.isNotBlank()) password else (existing?.password ?: "123456"))
-                        put("full_name", obj.optString("fullName", obj.optString("full_name", username)))
-                        put("phone", obj.optString("phone", existing?.phone ?: ""))
-                        put("role", obj.optString("role", existing?.role?.name ?: "USER"))
-                        if (fid.isNotBlank()) {
-                            put("face_id_data", fid)
-                        } else if (!existingFid.isNullOrBlank()) {
-                            put("face_id_data", existingFid)
-                        } else {
-                            putNull("face_id_data")
-                        }
-                    }
-                    db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
-                }
-
-                // Keep current user session updated
-                val saved = getSavedLoggedInUser()
-                if (saved != null) {
-                    val updatedUser = getUserByUsername(saved.username)
-                    if (updatedUser != null) {
-                        saveLoggedInUser(updatedUser)
-                    }
-                }
-            }
-
-            // 2. Synchronize Menu Items
-            val menuArr = payload.optJSONArray("menuItems")
-            if (menuArr != null) {
-                for (i in 0 until menuArr.length()) {
-                    val obj = menuArr.getJSONObject(i)
-                    val name = obj.optString("name")
-                    if (name.isBlank()) continue
-                    val cv = ContentValues().apply {
-                        put("name", name)
-                        put("category", obj.optString("category", "Món chính"))
-                        put("price", obj.optDouble("price", 0.0))
-                        put("description", obj.optString("description", ""))
-                        put("is_available", if (obj.optBoolean("isAvailable", true)) 1 else 0)
-                    }
-                    val updated = db.update(RestaurantDbHelper.TABLE_MENU_ITEMS, cv, "name=?", arrayOf(name))
-                    if (updated == 0) {
-                        db.insert(RestaurantDbHelper.TABLE_MENU_ITEMS, null, cv)
-                    }
-                }
-            }
-
-            // 3. Synchronize Employees
-            val empArr = payload.optJSONArray("employees")
-            if (empArr != null) {
-                for (i in 0 until empArr.length()) {
-                    val obj = empArr.getJSONObject(i)
-                    val name = obj.optString("name")
-                    val phone = obj.optString("phone")
-                    if (name.isBlank() && phone.isBlank()) continue
-                    val cv = ContentValues().apply {
-                        put("name", name)
-                        put("phone", phone)
-                        put("position", obj.optString("position", obj.optString("role", "Nhân viên")))
-                        put("tier", obj.optString("tier", "CHINH_THUC"))
-                        put("contract_type", obj.optString("contractType", "MONTHLY"))
-                        put("hourly_rate", obj.optDouble("hourlyRate", 25000.0))
-                        put("monthly_salary", obj.optDouble("monthlySalary", 8000000.0))
-                        put("worked_hours", obj.optDouble("workedHours", 0.0))
-                        put("worked_days", obj.optDouble("workedDays", 0.0))
-                        put("bonus", obj.optDouble("bonus", 0.0))
-                        put("penalty", obj.optDouble("penalty", 0.0))
-                    }
-                    val updated = db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=? OR name=?", arrayOf(phone, name))
-                    if (updated == 0) {
-                        db.insert(RestaurantDbHelper.TABLE_EMPLOYEES, null, cv)
-                    }
-                }
-            }
-
-            // 4. Synchronize Attendance Records
-            val attArr = payload.optJSONArray("attendance")
-            if (attArr != null) {
-                for (i in 0 until attArr.length()) {
-                    val obj = attArr.getJSONObject(i)
-                    val empName = obj.optString("employeeName")
-                    val ts = obj.optLong("timestamp", System.currentTimeMillis())
-                    val check = db.rawQuery(
-                        "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_name=? AND timestamp=?",
-                        arrayOf(empName, ts.toString())
-                    )
-                    var exists = false
-                    if (check.moveToFirst()) exists = check.getInt(0) > 0
-                    check.close()
-
-                    if (!exists) {
                         val cv = ContentValues().apply {
-                            put("employee_id", obj.optLong("employeeId", 1))
-                            put("employee_name", empName)
-                            put("type", obj.optString("type", "CHECK_IN"))
-                            put("method", obj.optString("method", "FACE_ID"))
-                            put("timestamp", ts)
-                            put("duration_hours", obj.optDouble("durationHours", 0.0))
-                            put("note", obj.optString("note", ""))
+                            put("username", username)
+                            put("password", if (password.isNotBlank()) password else (existing?.password ?: "123456"))
+                            put("full_name", obj.optString("fullName", obj.optString("full_name", username)))
+                            put("phone", obj.optString("phone", existing?.phone ?: ""))
+                            put("role", UserRole.fromString(obj.optString("role", existing?.role?.name ?: "USER")).name)
+                            if (fid.isNotBlank()) {
+                                put("face_id_data", fid)
+                            } else if (!existingFid.isNullOrBlank()) {
+                                put("face_id_data", existingFid)
+                            } else {
+                                putNull("face_id_data")
+                            }
                         }
-                        db.insert(RestaurantDbHelper.TABLE_ATTENDANCE, null, cv)
+                        db.insertWithOnConflict(RestaurantDbHelper.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+                    }
+
+                    // Keep current user session updated
+                    val saved = getSavedLoggedInUser()
+                    if (saved != null) {
+                        val updatedUser = getUserByUsername(saved.username)
+                        if (updatedUser != null) {
+                            saveLoggedInUser(updatedUser)
+                        }
                     }
                 }
-            }
 
-            // 5. Synchronize Customers
-            val custArr = payload.optJSONArray("customers")
-            if (custArr != null) {
-                for (i in 0 until custArr.length()) {
-                    val obj = custArr.getJSONObject(i)
-                    val phone = obj.optString("phone")
-                    val cv = ContentValues().apply {
-                        put("name", obj.optString("name"))
-                        put("phone", phone)
-                        put("email", obj.optString("email", ""))
-                        put("total_spent", obj.optDouble("totalSpent", 0.0))
-                        put("loyalty_points", obj.optInt("loyaltyPoints", 0))
-                    }
-                    val updated = db.update(RestaurantDbHelper.TABLE_CUSTOMERS, cv, "phone=?", arrayOf(phone))
-                    if (updated == 0) {
-                        db.insert(RestaurantDbHelper.TABLE_CUSTOMERS, null, cv)
-                    }
-                }
-            }
-
-            // 6. Synchronize Tables
-            val tablesArr = payload.optJSONArray("tables")
-            if (tablesArr != null) {
-                for (i in 0 until tablesArr.length()) {
-                    val obj = tablesArr.getJSONObject(i)
-                    val name = obj.optString("name")
-                    val cv = ContentValues().apply {
-                        put("name", name)
-                        put("floor", obj.optString("floor", "Tầng 1"))
-                        put("seats", obj.optInt("seats", obj.optInt("capacity", 4)))
-                        put("status", obj.optString("status", "TRONG"))
-                    }
-                    val updated = db.update(RestaurantDbHelper.TABLE_TABLES, cv, "name=?", arrayOf(name))
-                    if (updated == 0) {
-                        db.insert(RestaurantDbHelper.TABLE_TABLES, null, cv)
-                    }
-                }
-            }
-
-            // 7. Synchronize Settings
-            val settingsObj = payload.optJSONObject("settings")
-            if (settingsObj != null) {
-                val cv = ContentValues()
-                val keys = settingsObj.keys()
-                while (keys.hasNext()) {
-                    val k = keys.next()
-                    cv.put(k, settingsObj.optString(k))
-                }
-                if (cv.size() > 0) {
-                    db.update(RestaurantDbHelper.TABLE_SYSTEM_SETTINGS, cv, "id=1", null)
-                }
-            }
-
-            // 8. Synchronize Completed Orders (Revenue data)
-            val ordersArr = payload.optJSONArray("orders")
-            if (ordersArr != null) {
-                for (i in 0 until ordersArr.length()) {
-                    val oObj = ordersArr.getJSONObject(i)
-                    val oTime = oObj.optLong("timestamp", oObj.optLong("createdAt", System.currentTimeMillis()))
-                    val oTable = oObj.optString("tableName", "Bàn")
-                    val check = db.rawQuery(
-                        "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ORDERS} WHERE table_name=? AND timestamp=?",
-                        arrayOf(oTable, oTime.toString())
-                    )
-                    var exists = false
-                    if (check.moveToFirst()) exists = check.getInt(0) > 0
-                    check.close()
-
-                    if (!exists) {
+                // 2. Synchronize Menu Items
+                val menuArr = payload.optJSONArray("menuItems")
+                if (menuArr != null) {
+                    for (i in 0 until menuArr.length()) {
+                        val obj = menuArr.getJSONObject(i)
+                        val name = obj.optString("name")
+                        if (name.isBlank()) continue
                         val cv = ContentValues().apply {
-                            put("table_id", oObj.optLong("tableId", 1))
-                            put("table_name", oTable)
-                            val cId = oObj.optLong("customerId")
-                            if (cId > 0) put("customer_id", cId)
-                            put("customer_name", oObj.optString("customerName", "Khách vãng lai"))
-                            put("customer_tier_name", oObj.optString("customerTierName", "Bậc Đồng"))
-                            put("employee_id", oObj.optLong("employeeId", 1))
-                            put("employee_name", oObj.optString("employeeName", oObj.optString("staffName", "Nhân viên")))
-                            put("subtotal", oObj.optDouble("subtotal", 0.0))
-                            put("discount_percent", oObj.optDouble("discountPercent", 0.0))
-                            put("payment_method", oObj.optString("paymentMethod", "Tiền mặt"))
-                            put("status", oObj.optString("status", "COMPLETED"))
-                            put("timestamp", oTime)
+                            put("name", name)
+                            put("category", obj.optString("category", "Món chính"))
+                            put("price", obj.optDouble("price", 0.0))
+                            put("description", obj.optString("description", ""))
+                            put("is_available", if (obj.optBoolean("isAvailable", true)) 1 else 0)
                         }
-                        val newOrderId = db.insert(RestaurantDbHelper.TABLE_ORDERS, null, cv)
-                        val itemsArr = oObj.optJSONArray("items")
-                        if (itemsArr != null && newOrderId != -1L) {
-                            for (j in 0 until itemsArr.length()) {
-                                val itObj = itemsArr.getJSONObject(j)
-                                val itCv = ContentValues().apply {
-                                    put("order_id", newOrderId)
-                                    put("menu_item_id", itObj.optLong("menuItemId", itObj.optLong("id", 1)))
-                                    put("menu_item_name", itObj.optString("menuItemName", itObj.optString("name", "Món ăn")))
-                                    put("price", itObj.optDouble("price", 0.0))
-                                    put("quantity", itObj.optInt("quantity", 1))
-                                    put("note", itObj.optString("note", ""))
+                        val updated = db.update(RestaurantDbHelper.TABLE_MENU_ITEMS, cv, "name=?", arrayOf(name))
+                        if (updated == 0) {
+                            db.insert(RestaurantDbHelper.TABLE_MENU_ITEMS, null, cv)
+                        }
+                    }
+                }
+
+                // 3. Synchronize Employees
+                val empArr = payload.optJSONArray("employees")
+                if (empArr != null) {
+                    for (i in 0 until empArr.length()) {
+                        val obj = empArr.getJSONObject(i)
+                        val name = obj.optString("name")
+                        val phone = obj.optString("phone")
+                        if (name.isBlank() && phone.isBlank()) continue
+                        val cv = ContentValues().apply {
+                            put("name", name)
+                            put("phone", phone)
+                            put("position", obj.optString("position", obj.optString("role", "Nhân viên")))
+                            put("tier", EmployeeTier.fromString(obj.optString("tier", "CHINH_THUC")).name)
+                            put("contract_type", ContractType.fromString(obj.optString("contractType", obj.optString("contract_type", "MONTHLY"))).name)
+                            put("hourly_rate", obj.optDouble("hourlyRate", 25000.0))
+                            put("monthly_salary", obj.optDouble("monthlySalary", 8000000.0))
+                            put("worked_hours", obj.optDouble("workedHours", 0.0))
+                            put("worked_days", obj.optDouble("workedDays", 0.0))
+                            put("bonus", obj.optDouble("bonus", 0.0))
+                            put("penalty", obj.optDouble("penalty", 0.0))
+                        }
+                        val updated = db.update(RestaurantDbHelper.TABLE_EMPLOYEES, cv, "phone=? OR name=?", arrayOf(phone, name))
+                        if (updated == 0) {
+                            db.insert(RestaurantDbHelper.TABLE_EMPLOYEES, null, cv)
+                        }
+                    }
+                }
+
+                // 4. Synchronize Attendance Records
+                val attArr = payload.optJSONArray("attendance")
+                if (attArr != null) {
+                    for (i in 0 until attArr.length()) {
+                        val obj = attArr.getJSONObject(i)
+                        val empName = obj.optString("employeeName")
+                        val ts = obj.optLong("timestamp", System.currentTimeMillis())
+                        val check = db.rawQuery(
+                            "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ATTENDANCE} WHERE employee_name=? AND timestamp=?",
+                            arrayOf(empName, ts.toString())
+                        )
+                        var exists = false
+                        if (check.moveToFirst()) exists = check.getInt(0) > 0
+                        check.close()
+
+                        if (!exists) {
+                            val cv = ContentValues().apply {
+                                put("employee_id", obj.optLong("employeeId", 1))
+                                put("employee_name", empName)
+                                put("type", AttendanceType.fromString(obj.optString("type", "CHECK_IN")).name)
+                                put("method", AttendanceMethod.fromString(obj.optString("method", "FACE_ID")).name)
+                                put("timestamp", ts)
+                                put("duration_hours", obj.optDouble("durationHours", 0.0))
+                                put("note", obj.optString("note", ""))
+                            }
+                            db.insert(RestaurantDbHelper.TABLE_ATTENDANCE, null, cv)
+                        }
+                    }
+                }
+
+                // 5. Synchronize Customers
+                val custArr = payload.optJSONArray("customers")
+                if (custArr != null) {
+                    for (i in 0 until custArr.length()) {
+                        val obj = custArr.getJSONObject(i)
+                        val phone = obj.optString("phone")
+                        val cv = ContentValues().apply {
+                            put("name", obj.optString("name"))
+                            put("phone", phone)
+                            put("email", obj.optString("email", ""))
+                            put("total_spent", obj.optDouble("totalSpent", 0.0))
+                            put("loyalty_points", obj.optInt("loyaltyPoints", 0))
+                        }
+                        val updated = db.update(RestaurantDbHelper.TABLE_CUSTOMERS, cv, "phone=?", arrayOf(phone))
+                        if (updated == 0) {
+                            db.insert(RestaurantDbHelper.TABLE_CUSTOMERS, null, cv)
+                        }
+                    }
+                }
+
+                // 6. Synchronize Tables
+                val tablesArr = payload.optJSONArray("tables")
+                if (tablesArr != null) {
+                    for (i in 0 until tablesArr.length()) {
+                        val obj = tablesArr.getJSONObject(i)
+                        val name = obj.optString("name")
+                        val cv = ContentValues().apply {
+                            put("name", name)
+                            put("floor", obj.optString("floor", "Tầng 1"))
+                            put("seats", obj.optInt("seats", obj.optInt("capacity", 4)))
+                            put("status", TableStatus.fromString(obj.optString("status", "TRONG")).name)
+                        }
+                        val updated = db.update(RestaurantDbHelper.TABLE_TABLES, cv, "name=?", arrayOf(name))
+                        if (updated == 0) {
+                            db.insert(RestaurantDbHelper.TABLE_TABLES, null, cv)
+                        }
+                    }
+                }
+
+                // 7. Synchronize Settings
+                val settingsObj = payload.optJSONObject("settings")
+                if (settingsObj != null) {
+                    val cv = ContentValues()
+                    val keys = settingsObj.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        cv.put(k, settingsObj.optString(k))
+                    }
+                    if (cv.size() > 0) {
+                        db.update(RestaurantDbHelper.TABLE_SYSTEM_SETTINGS, cv, "id=1", null)
+                    }
+                }
+
+                // 8. Synchronize Completed Orders (Revenue data)
+                val ordersArr = payload.optJSONArray("orders")
+                if (ordersArr != null) {
+                    for (i in 0 until ordersArr.length()) {
+                        val oObj = ordersArr.getJSONObject(i)
+                        val oTime = oObj.optLong("timestamp", oObj.optLong("createdAt", System.currentTimeMillis()))
+                        val oTable = oObj.optString("tableName", "Bàn")
+                        val check = db.rawQuery(
+                            "SELECT COUNT(*) FROM ${RestaurantDbHelper.TABLE_ORDERS} WHERE table_name=? AND timestamp=?",
+                            arrayOf(oTable, oTime.toString())
+                        )
+                        var exists = false
+                        if (check.moveToFirst()) exists = check.getInt(0) > 0
+                        check.close()
+
+                        if (!exists) {
+                            val cv = ContentValues().apply {
+                                put("table_id", oObj.optLong("tableId", 1))
+                                put("table_name", oTable)
+                                val cId = oObj.optLong("customerId")
+                                if (cId > 0) put("customer_id", cId)
+                                put("customer_name", oObj.optString("customerName", "Khách vãng lai"))
+                                put("customer_tier_name", oObj.optString("customerTierName", "Bậc Đồng"))
+                                put("employee_id", oObj.optLong("employeeId", 1))
+                                put("employee_name", oObj.optString("employeeName", oObj.optString("staffName", "Nhân viên")))
+                                put("subtotal", oObj.optDouble("subtotal", 0.0))
+                                put("discount_percent", oObj.optDouble("discountPercent", 0.0))
+                                put("payment_method", oObj.optString("paymentMethod", "Tiền mặt"))
+                                put("status", OrderStatus.fromString(oObj.optString("status", "COMPLETED")).name)
+                                put("timestamp", oTime)
+                            }
+                            val newOrderId = db.insert(RestaurantDbHelper.TABLE_ORDERS, null, cv)
+                            val itemsArr = oObj.optJSONArray("items")
+                            if (itemsArr != null && newOrderId != -1L) {
+                                for (j in 0 until itemsArr.length()) {
+                                    val itObj = itemsArr.getJSONObject(j)
+                                    val itCv = ContentValues().apply {
+                                        put("order_id", newOrderId)
+                                        put("menu_item_id", itObj.optLong("menuItemId", itObj.optLong("id", 1)))
+                                        put("menu_item_name", itObj.optString("menuItemName", itObj.optString("name", "Món ăn")))
+                                        put("price", itObj.optDouble("price", 0.0))
+                                        put("quantity", itObj.optInt("quantity", 1))
+                                        put("note", itObj.optString("note", ""))
+                                    }
+                                    db.insert(RestaurantDbHelper.TABLE_ORDER_ITEMS, null, itCv)
                                 }
-                                db.insert(RestaurantDbHelper.TABLE_ORDER_ITEMS, null, itCv)
                             }
                         }
                     }
                 }
-            }
 
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
-        loadActiveOrdersFromDb()
-        if (notify) {
-            notifyDataChanged("full_sync_completed")
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+            loadActiveOrdersFromDb()
+            if (notify) {
+                notifyDataChanged("full_sync_completed")
+            }
+        } catch (e: Exception) {
+            Log.e("RestaurantRepository", "Error applying full sync snapshot", e)
         }
     }
 }

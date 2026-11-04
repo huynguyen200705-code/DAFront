@@ -13,7 +13,17 @@ data class OrderItem(
 
 enum class OrderStatus {
     PENDING,
-    COMPLETED
+    COMPLETED;
+
+    companion object {
+        fun fromString(value: String?): OrderStatus {
+            if (value.isNullOrBlank()) return PENDING
+            return when (value.uppercase().trim()) {
+                "COMPLETED", "DONE", "PAID", "DA_THANH_TOAN" -> COMPLETED
+                else -> PENDING
+            }
+        }
+    }
 }
 
 data class Order(

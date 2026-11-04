@@ -4,12 +4,36 @@ enum class EmployeeTier(val displayName: String) {
     THU_VIEC("Thử việc"),
     CHINH_THUC("Chính thức"),
     QUAN_LY("Quản lý"),
-    GIAM_DOC("Giám đốc")
+    GIAM_DOC("Giám đốc");
+
+    companion object {
+        fun fromString(value: String?): EmployeeTier {
+            if (value.isNullOrBlank()) return CHINH_THUC
+            return when (value.uppercase().trim()) {
+                "THU_VIEC", "THUVIEC", "PROBATION" -> THU_VIEC
+                "CHINH_THUC", "CHINHTHUC", "OFFICIAL" -> CHINH_THUC
+                "QUAN_LY", "QUANLY", "MANAGER" -> QUAN_LY
+                "GIAM_DOC", "GIAMDOC", "DIRECTOR" -> GIAM_DOC
+                else -> CHINH_THUC
+            }
+        }
+    }
 }
 
 enum class ContractType(val displayName: String) {
     HOURLY("Theo giờ"),
-    MONTHLY("Theo tháng")
+    MONTHLY("Theo tháng");
+
+    companion object {
+        fun fromString(value: String?): ContractType {
+            if (value.isNullOrBlank()) return MONTHLY
+            return when (value.uppercase().trim()) {
+                "HOURLY", "THEO_GIO", "PART_TIME" -> HOURLY
+                "MONTHLY", "THEO_THANG", "FULL_TIME" -> MONTHLY
+                else -> MONTHLY
+            }
+        }
+    }
 }
 
 data class Employee(

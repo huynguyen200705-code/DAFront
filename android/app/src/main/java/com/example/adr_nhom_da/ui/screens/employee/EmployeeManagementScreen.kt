@@ -1156,7 +1156,7 @@ fun AttendanceLogsView(
 fun ModernAttendanceRecordCard(record: AttendanceRecord) {
     val isCheckIn = record.type == AttendanceType.CHECK_IN
     val methodColor = when (record.method) {
-        AttendanceMethod.NFC -> Color(0xFF1976D2)
+        AttendanceMethod.NFC, AttendanceMethod.NFC_CARD -> Color(0xFF1976D2)
         AttendanceMethod.QR_CODE -> Color(0xFF388E3C)
         AttendanceMethod.FACE_ID -> PrimaryRed
     }

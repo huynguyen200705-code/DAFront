@@ -1,6 +1,8 @@
 package com.example.adr_nhom_da.data.remote
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.example.adr_nhom_da.data.model.AttendanceRecord
 import com.example.adr_nhom_da.data.model.AttendanceType
@@ -54,11 +56,16 @@ object WebApiSyncEngine {
         if (isEngineRunning) return
         isEngineRunning = true
 
-        // 1. Đồng bộ toàn bộ dữ liệu 2 chiều ngay lập tức khi mở app
-        syncAll(context, repository, null)
-
-        // 2. Chạy vòng lặp đồng bộ định kỳ mỗi 15 giây
+        // Chạy vòng lặp đồng bộ nền (chờ 1.5s để ứng dụng dựng xong giao diện đầu tiên)
         syncWorkerThread = thread(start = true, isDaemon = true, name = "WebApiSyncEngineThread") {
+            try {
+                Thread.sleep(1500)
+            } catch (ignored: InterruptedException) {
+                return@thread
+            }
+            if (isEngineRunning) {
+                syncAll(context, repository, null)
+            }
             while (isEngineRunning) {
                 try {
                     Thread.sleep(15000)
@@ -77,6 +84,17 @@ object WebApiSyncEngine {
         isEngineRunning = false
         syncWorkerThread?.interrupt()
         syncWorkerThread = null
+    }
+
+    private fun notifyResult(callback: ((Boolean, String) -> Unit)?, success: Boolean, message: String) {
+        if (callback == null) return
+        Handler(Looper.getMainLooper()).post {
+            try {
+                callback(success, message)
+            } catch (e: Exception) {
+                Log.e(TAG, "Lỗi callback onResult: ${e.message}", e)
+            }
+        }
     }
 
     /**
@@ -248,7 +266,7 @@ object WebApiSyncEngine {
                 }
 
                 if (connectedUrl == null) {
-                    onResult?.invoke(false, "Không thể kết nối Web API (kiểm tra mạng Internet hoặc server Render)")
+                    notifyResult(onResult, false, "Không thể kết nối Web API (kiểm tra mạng Internet hoặc server Render)")
                     return@thread
                 }
 
@@ -344,14 +362,14 @@ object WebApiSyncEngine {
                         Log.w(TAG, "Lỗi lấy attendance từ Web API: ${e.message}")
                     }
 
-                    onResult?.invoke(true, "Đồng bộ thành công song song với Web API ($connectedUrl)")
+                    notifyResult(onResult, true, "Đồng bộ thành công song song với Web API ($connectedUrl)")
                 } else {
                     Log.w(TAG, "Lỗi HTTP $code từ Web API")
-                    onResult?.invoke(false, "Web API phản hồi mã lỗi: $code")
+                    notifyResult(onResult, false, "Web API phản hồi mã lỗi: $code")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Lỗi trong quá trình đồng bộ: ${e.message}", e)
-                onResult?.invoke(false, "Lỗi: ${e.message}")
+                notifyResult(onResult, false, "Lỗi: ${e.message}")
             }
         }
     }

@@ -149,7 +149,7 @@ object RestaurantApiClient {
                         password = "",
                         fullName = userObj.optString("fullName"),
                         phone = userObj.optString("phone"),
-                        role = UserRole.valueOf(userObj.optString("role", "USER"))
+                        role = UserRole.fromString(userObj.optString("role", "USER"))
                     )
                 }
             }
@@ -179,7 +179,7 @@ object RestaurantApiClient {
                             name = obj.getString("name"),
                             floor = obj.optString("floor", "Tầng 1"),
                             seats = obj.optInt("seats", 4),
-                            status = TableStatus.valueOf(obj.getString("status")),
+                            status = TableStatus.fromString(obj.optString("status")),
                             currentOrderId = if (obj.isNull("currentOrderId")) null else obj.getLong("currentOrderId")
                         )
                     )
@@ -275,8 +275,8 @@ object RestaurantApiClient {
                         id = data.optLong("id"),
                         employeeId = data.optLong("employeeId"),
                         employeeName = data.optString("employeeName"),
-                        type = AttendanceType.valueOf(data.optString("type")),
-                        method = AttendanceMethod.valueOf(data.optString("method")),
+                        type = AttendanceType.fromString(data.optString("type")),
+                        method = AttendanceMethod.fromString(data.optString("method")),
                         timestamp = data.optLong("timestamp"),
                         durationHours = data.optDouble("durationHours", 0.0),
                         note = data.optString("note", "")

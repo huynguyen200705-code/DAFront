@@ -27,6 +27,13 @@ class RestaurantDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         const val TABLE_SYSTEM_SETTINGS = "system_settings"
     }
 
+    override fun onConfigure(db: SQLiteDatabase) {
+        super.onConfigure(db)
+        try {
+            db.enableWriteAheadLogging()
+        } catch (ignored: Exception) {}
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         // 1. Create Users
         db.execSQL("""

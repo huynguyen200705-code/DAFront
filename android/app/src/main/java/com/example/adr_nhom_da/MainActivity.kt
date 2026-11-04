@@ -1,6 +1,7 @@
 package com.example.adr_nhom_da
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
@@ -24,60 +25,70 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        repository = RestaurantRepository(this)
-        
-        // Khởi động Engine đồng bộ 2 chiều liên tục với Web API
-        WebApiSyncEngine.start(applicationContext, repository)
 
-        val savedUser = repository.getSavedLoggedInUser()
+        // Bảo vệ toàn cục: ghi nhận mọi ngoại lệ không mong muốn, tránh sập app đột ngột
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            Log.e("APP_CRASH", "Bắt ngoại lệ trên luồng ${thread.name}: ${throwable.message}", throwable)
+        }
 
-        setContent {
-            AdrNhomDaTheme {
-                var currentScreen by remember { mutableStateOf(if (savedUser != null) ScreenState.MAIN_APP else ScreenState.LOGIN) }
-                var currentUser by remember { mutableStateOf(savedUser) }
+        try {
+            repository = RestaurantRepository(this)
+            
+            // Khởi động Engine đồng bộ 2 chiều liên tục với Web API
+            WebApiSyncEngine.start(applicationContext, repository)
 
-                when (currentScreen) {
-                    ScreenState.LOGIN -> {
-                        LoginScreen(
-                            repository = repository,
-                            onLoginSuccess = { user ->
-                                repository.saveLoggedInUser(user)
-                                currentUser = user
-                                currentScreen = ScreenState.MAIN_APP
-                            },
-                            onNavigateToRegister = {
-                                currentScreen = ScreenState.REGISTER
-                            }
-                        )
-                    }
+            val savedUser = repository.getSavedLoggedInUser()
 
-                    ScreenState.REGISTER -> {
-                        RegisterScreen(
-                            repository = repository,
-                            onRegisterSuccess = {
-                                currentScreen = ScreenState.LOGIN
-                            },
-                            onNavigateBackToLogin = {
-                                currentScreen = ScreenState.LOGIN
-                            }
-                        )
-                    }
+            setContent {
+                AdrNhomDaTheme {
+                    var currentScreen by remember { mutableStateOf(if (savedUser != null) ScreenState.MAIN_APP else ScreenState.LOGIN) }
+                    var currentUser by remember { mutableStateOf(savedUser) }
 
-                    ScreenState.MAIN_APP -> {
-                        currentUser?.let { user ->
-                            MainContainerScreen(
-                                currentUser = user,
+                    when (currentScreen) {
+                        ScreenState.LOGIN -> {
+                            LoginScreen(
                                 repository = repository,
-                                onLogout = {
-                                    repository.clearLoggedInUser()
-                                    currentUser = null
+                                onLoginSuccess = { user ->
+                                    repository.saveLoggedInUser(user)
+                                    currentUser = user
+                                    currentScreen = ScreenState.MAIN_APP
+                                },
+                                onNavigateToRegister = {
+                                    currentScreen = ScreenState.REGISTER
+                                }
+                            )
+                        }
+
+                        ScreenState.REGISTER -> {
+                            RegisterScreen(
+                                repository = repository,
+                                onRegisterSuccess = {
+                                    currentScreen = ScreenState.LOGIN
+                                },
+                                onNavigateBackToLogin = {
                                     currentScreen = ScreenState.LOGIN
                                 }
                             )
                         }
+
+                        ScreenState.MAIN_APP -> {
+                            currentUser?.let { user ->
+                                MainContainerScreen(
+                                    currentUser = user,
+                                    repository = repository,
+                                    onLogout = {
+                                        repository.clearLoggedInUser()
+                                        currentUser = null
+                                        currentScreen = ScreenState.LOGIN
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Lỗi khởi tạo Activity: ${e.message}", e)
         }
     }
 
